@@ -1,0 +1,9 @@
+{
+  "type": "stdio",
+  "name": "com.winocr.native_host",
+  "path": "D:\\AI\\WinOCRHtml20060927\\target\\release\\winocr-host.exe",
+  "description": "WinOCR Native Messaging Host (word translation / vocabulary collection)",
+  "allowed_origins": [
+    "chrome-extension://ahbpjindiehpcfpmjcfkpaigjfhnibji/"
+  ]
+}

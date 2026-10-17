@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WinOCR 主窗口 · 高保真原型</title>
+<link rel="stylesheet" href="hifi.css">
+</head>
+<body>
+<div class="stage" data-device="desktop">
+
+  <!-- 舞台条：桌面单视图 -->
+  <div class="stage-bar">
+    <div class="stage-brand"><span class="dot"></span></div>
+    <span class="stage-name">WinOCR 主窗口</span>
+    <span class="stage-sub">桌面界面 · OCR 原文 / 翻译</span>
+    <span class="stage-spacer"></span>
+    <span class="theme-dots">
+      <button type="button" class="theme-dot is-on" data-theme-dot="winocr"><span class="tip">WinOCR 青蓝</span></button>
+    </div>
+    <span class="stage-sub">v0.9.0</span>
+  </div>
+
+  <div class="stage-body">
+    <div class="stage-frame">
+      <div class="app" data-theme="winocr">
+
+      <!-- ============ P1 · 主窗口（桌面，OCR 原文区 + 翻译区） ============ -->
+      <section class="page is-active" id="p1" data-pid="P1" data-title="主窗口">
+        <div class="win-wrap">
+          <div class="win">
+
+            <!-- 标题栏 -->
+            <div class="win-bar">
+              <span class="win-logo">W</span>
+              <span class="win-name">WinOCR</span>
+              <span class="win-ver">v0.9.0</span>
+              <span class="spacer"></span>
+              <span class="win-status-mini"><span class="dot ok"></span> 已就绪</span>
+              <button class="win-ctrl" data-toast="已最小化到托盘" data-icon="minus"></button>
+              <button class="win-ctrl win-ctrl-close" data-toast="已关闭到托盘，点击托盘图标可恢复" data-icon="x"></button>
+            </div>
+
+            <!-- 工具栏 -->
+            <div class="win-tool">
+              <span class="lang-row">
+                <span class="chip">自动检测</span>
+                <span class="arrow" data-icon="arrow-right"></span>
+                <span class="chip chip-brand">简体中文</span>
+              </span>
+              <span class="spacer"></span>
+              <button class="btn btn-ghost btn-sm" data-modal-open="#paste-modal" data-icon="clipboard">粘贴翻译</button>
+              <button class="btn btn-ghost btn-sm" data-drawer-open="#history-drawer" data-icon="clock">历史</button>
+              <button class="btn btn-ghost btn-sm" data-drawer-open="#vocab-drawer" data-icon="bookmark">生词本</button>
+              <button class="btn btn-gradient btn-sm" data-loading="1400" data-loading-done="已进入截图模式" data-icon="scan">截图翻译</button>
+            </div>
+
+            <!-- 主体：左 OCR 原文区 / 右 翻译区 -->
+            <div class="win-panes">
+
+              <!-- 左：OCR 原文区 -->
+              <section class="pane">
+                <div class="pane-hd">
+                  <span class="pane-title"><span class="pane-ic" data-icon="file"></span> OCR 原文</span>
+                  <span class="spacer"></span>
+                  <button class="btn btn-ghost btn-icon btn-sm" data-toast="已重新识别" data-icon="refresh" title="重新识别"></button>
+                  <button class="btn btn-ghost btn-icon btn-sm" data-copy="#ocr-src" data-toast="已复制原文" data-icon="copy" title="复制原文"></button>
+                </div>
+                <div class="pane-bd">
+                  <textarea class="pane-area" id="ocr-src" spellcheck="false">System Preferences › Network › Advanced
+Configure TCP/IP, DNS and Wi‑Fi settings here.
+
+The quick brown fox jumps over the lazy dog.</textarea>
+                </div>
+                <div class="pane-ft"><span class="xs muted">原文 3 行 · 69 字符 · 可手动编辑修正</span></div>
+              </section>
+
+              <!-- 右：翻译区 -->
+              <section class="pane pane-out">
+                <div class="pane-hd">
+                  <span class="pane-title"><span class="pane-ic" data-icon="globe"></span> 翻译</span>
+                  <span class="select-wrap select-wrap-sm">
+                    <select class="select select-sm"><option>简体中文</option><option>English</option><option>日本語</option><option>한국어</option></select>
+                  </span>
+                  <span class="spacer"></span>
+                  <button class="btn btn-ghost btn-icon btn-sm" data-toast="已朗读" data-icon="volume" title="朗读译文"></button>
+                  <button class="btn btn-ghost btn-icon btn-sm" data-copy="#ocr-out" data-toast="已复制译文" data-icon="copy" title="复制译文"></button>
+                </div>
+                <div class="pane-bd">
+                  <textarea class="pane-area pane-area-out" id="ocr-out" readonly spellcheck="false">系统偏好设置 › 网络 › 高级
+在此配置 TCP/IP、DNS 与 Wi‑Fi 设置。
+
+那只敏捷的棕狐跳过了懒狗。</textarea>
+                </div>
+                <div class="pane-ft">
+                  <span class="xs muted">译文 3 行 · 42 字</span>
+                  <span class="spacer"></span>
+                  <button class="btn btn-ghost btn-sm" data-toast="已加入生词本" data-icon="bookmark">收藏生词</button>
+                  <button class="btn btn-ghost btn-sm" data-icon="swap" title="互换语言">互换</button>
+                </div>
+              </section>
+
+            </div>
+
+            <!-- 状态栏 -->
+            <div class="win-status">
+              <span class="pill ok"><span class="dot ok"></span> OCR 引擎</span>
+              <span class="pill ok"><span class="dot ok"></span> 翻译引擎</span>
+              <span class="pill warn"><span class="dot warn"></span> 网络代理</span>
+              <span class="pill ok"><span class="dot ok"></span> 结果缓存</span>
+              <span class="spacer"></span>
+              <span class="xs muted">本月额度 <b class="num">62%</b></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 抽屉 / 弹窗 ============ -->
+
+      <!-- 历史记录 -->
+      <div class="drawer drawer-right" id="history-drawer">
+        <div class="drawer-hd"><span class="drawer-title">历史记录</span><button class="btn btn-ghost btn-icon" data-close data-icon="x"></button></div>
+        <div class="drawer-bd stack">
+          <div class="list">
+            <div class="list-item"><div class="li-main"><div class="li-title clamp-1">System Preferences › Network</div><div class="li-desc clamp-1">系统偏好设置 › 网络</div></div><span class="li-meta">14:02</span></div>
+            <div class="list-item"><div class="li-main"><div class="li-title clamp-1">Download the installer and run it</div><div class="li-desc clamp-1">下载安装程序并运行</div></div><span class="li-meta">13:48</span></div>
+            <div class="list-item"><div class="li-main"><div class="li-title clamp-1">Push the changes to the remote branch</div><div class="li-desc clamp-1">将更改推送到远程分支</div></div><span class="li-meta">13:31</span></div>
+            <div class="list-item"><div class="li-main"><div class="li-title clamp-1">The quick brown fox jumps over</div><div class="li-desc clamp-1">那只敏捷的棕狐跳过了</div></div><span class="li-meta">12:57</span></div>
+            <div class="list-item"><div class="li-main"><div class="li-title clamp-1">Terms of Service · Last updated 2026</div><div class="li-desc clamp-1">服务条款 · 最后更新 2026</div></div><span class="li-meta">12:20</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 生词本 -->
+      <div class="drawer drawer-right" id="vocab-drawer">
+        <div class="drawer-hd"><span class="drawer-title">生词本</span><span class="spacer"></span><span class="tag tag-outline">43 词</span><button class="btn btn-ghost btn-icon" data-close data-icon="x"></button></div>
+        <div class="drawer-bd stack">
+          <div class="list">
+            <div class="list-item"><div class="li-main"><div class="li-title">serendipity</div><div class="li-desc">机缘巧合的发现</div></div><button class="btn btn-ghost btn-icon btn-sm" data-toast="已朗读" data-icon="volume"></button></div>
+            <div class="list-item"><div class="li-main"><div class="li-title">ubiquitous</div><div class="li-desc">无处不在的</div></div><button class="btn btn-ghost btn-icon btn-sm" data-toast="已朗读" data-icon="volume"></button></div>
+            <div class="list-item"><div class="li-main"><div class="li-title">ephemeral</div><div class="li-desc">短暂的</div></div><button class="btn btn-ghost btn-icon btn-sm" data-toast="已朗读" data-icon="volume"></button></div>
+            <div class="list-item"><div class="li-main"><div class="li-title">resilience</div><div class="li-desc">韧性 / 复原力</div></div><button class="btn btn-ghost btn-icon btn-sm" data-toast="已朗读" data-icon="volume"></button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 设置（M12：OCR / 模型 / 隐私） -->
+      <div class="drawer drawer-right" id="settings-drawer">
+        <div class="drawer-hd"><span class="drawer-title">设置</span><button class="btn btn-ghost btn-icon" data-close data-icon="x"></button></div>
+        <div class="drawer-bd stack-lg">
+          <div class="card">
+            <div class="card-hd"><span class="card-title">OCR</span></div>
+            <div class="card-bd stack-sm">
+              <div class="field" style="border:0;padding:0">
+                <label class="field-label">OCR 引擎</label>
+                <div class="select-wrap"><select class="select"><option>本地 PP-OCRv6（推荐）</option><option>Windows 系统 OCR</option><option>SiliconFlow 云端</option></select></div>
+              </div>
+              <label class="check"><input type="checkbox" checked><span class="box"></span> 启用结果缓存</label>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="card-title">模型 / 翻译</span></div>
+            <div class="card-bd stack-sm">
+              <div class="field" style="border:0;padding:0">
+                <label class="field-label">翻译引擎</label>
+                <div class="select-wrap"><select class="select"><option>SiliconFlow</option><option>有道智云</option><option>MyMemory</option><option>Ollama 本地</option></select></div>
+              </div>
+              <label class="check"><input type="checkbox"><span class="box"></span> 启用术语库优先</label>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><span class="card-title">隐私</span></div>
+            <div class="card-bd stack-sm">
+              <label class="check"><input type="checkbox"><span class="box"></span> 允许匿名遥测（仅错误计数）</label>
+              <label class="check"><input type="checkbox" checked><span class="box"></span> 本地密钥加密（DPAPI）</label>
+              <p class="xs muted">所有密钥仅存于本机，不会上传。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 复习闪卡 -->
+      <div class="modal" id="review-modal">
+        <div class="modal-hd"><span class="modal-title">复习闪卡</span><button class="btn btn-ghost btn-icon" data-close data-icon="x"></button></div>
+        <div class="modal-bd center stack">
+          <div class="card" style="width:240px;padding:var(--sp-6);border-radius:var(--radius-lg)">
+            <span class="xs muted">英文</span>
+            <div class="h2" style="margin-top:6px">serendipity</div>
+            <div class="muted xs" style="margin-top:10px">机缘巧合的发现</div>
+          </div>
+          <div class="row" style="gap:var(--sp-3);justify-content:center">
+            <button class="btn btn-secondary" data-close data-toast="已记为「认识」">认识</button>
+            <button class="btn btn-primary" data-close data-toast="已加入待复习">不认识</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 粘贴翻译 -->
+      <div class="modal modal-sm" id="paste-modal">
+        <div class="modal-hd"><span class="modal-title">粘贴翻译</span><button class="btn btn-ghost btn-icon" data-close data-icon="x"></button></div>
+        <div class="modal-bd">
+          <textarea class="textarea" style="min-height:140px" placeholder="在此粘贴要翻译的文本…（例如从网页或文档复制的内容）"></textarea>
+        </div>
+        <div class="modal-ft"><span class="spacer"></span><button class="btn btn-primary" data-close data-toast="已开始翻译">翻译</button></div>
+      </div>
+
+      <!-- 退出确认（破坏性） -->
+      <div class="modal modal-sm" id="quit-modal">
+        <div class="modal-hd"><span class="modal-title">退出程序</span><button class="btn btn-ghost btn-icon" data-close data-icon="x"></button></div>
+        <div class="modal-bd">确认退出 WinOCR？退出后托盘中的截图翻译快捷键将不再可用。</div>
+        <div class="modal-ft"><button class="btn btn-ghost" data-close>取消</button><button class="btn btn-danger" data-close data-toast="已退出 WinOCR">退出</button></div>
+      </div>
+
+      </div><!-- /app -->
+    </div>
+  </div>
+</div>
+<script src="hifi.js"></script>
+</body>
+</html>

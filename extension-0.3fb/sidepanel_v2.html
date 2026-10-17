@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>WinOCR-Html v2</title>
+<style>
+/* =========================================================================
+   WinOCR-Html v2 · 第一性原理设计
+   核心原则：单一主流程 + 渐进披露 + 最小认知负荷
+   ========================================================================= */
+:root{
+  --bg:#f8fafc; --surface:#ffffff; --surface-2:#f1f5f9;
+  --text:#0f172a; --muted:#64748b; --faint:#94a3b8;
+  --border:#e2e8f0; --border-strong:#cbd5e1;
+  --accent:#2563eb; --accent-ink:#1d4ed8; --accent-light:#dbeafe;
+  --ok:#16a34a; --ok-light:#dcfce7;
+  --err:#dc2626; --warn:#d97706;
+  --radius:12px; --radius-sm:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.1);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Consolas,monospace;
+  --transition:200ms cubic-bezier(.16,1,.3,1);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f172a; --surface:#1e293b; --surface-2:#334155;
+    --text:#f1f5f9; --muted:#94a3b8; --faint:#64748b;
+    --border:#334155; --border-strong:#475569;
+    --accent:#3b82f6; --accent-ink:#60a5fa; --accent-light:#1e3a8a;
+    --ok:#22c55e; --ok-light:#14532d;
+    --ef:#ef4444; --warn:#f59e0b;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font);
+  font-size:14px;
+  line-height:1.6;
+  color:var(--text);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+
+/* ---- 顶部导航 ---- */
+.nav{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 16px;
+  background:linear-gradient(135deg,var(--accent) 0%,var(--accent-ink) 100%);
+  color:#fff;
+}
+.nav h1{
+  font-size:18px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.nav .version{
+  font-size:10px;
+  background:rgba(255,255,255,.2);
+  padding:2px 8px;
+  border-radius:10px;
+  font-family:var(--font-mono);
+}
+.nav .settings-btn{
+  width:32px;
+  height:32px;
+  border:none;
+  background:rgba(255,255,255,.15);
+  border-radius:8px;
+  color:#fff;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:16px;
+  transition:background var(--transition);
+}
+.nav .settings-btn:hover{background:rgba(255,255,255,.25)}
+
+/* ---- Tab 切换 ---- */
+.tabs{
+  display:flex;
+  gap:4px;
+  padding:8px 16px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+}
+.tab{
+  flex:1;
+  padding:10px 12px;
+  border:none;
+  background:transparent;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:500;
+  border-radius:var(--radius-sm);
+  cursor:pointer;
+  transition:all var(--transition);
+  position:relative;
+}
+.tab:hover{color:var(--text);background:var(--surface-2)}
+.tab.active{
+  color:var(--accent);
+  background:var(--accent-light);
+  font-weight:600;
+}
+.tab .badge{
+  position:absolute;
+  top:4px;
+  right:4px;
+  width:8px;
+  height:8px;
+  background:var(--accent);
+  border-radius:50%;
+  display:none;
+}
+.tab.active .badge{display:block}
+
+/* ---- 主内容区 ---- */
+.main{
+  display:flex;
+  flex-direction:column;
+  height:calc(100% - 120px);
+  overflow:hidden;
+}
+
+/* ---- 输入区 ---- */
+.input-section{
+  padding:16px;
+  background:var(--surface);
+}
+.lang-bar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:12px;
+}
+.lang-select{
+  flex:1;
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  background:var(--bg);
+  color:var(--text);
+  font-size:13px;
+  font-family:var(--font);
+  cursor:pointer;
+  transition:border-color var(--transition);
+}
+.lang-select:hover{border-color:var(--accent)}
+.lang-select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+.lang-swap{
+  width:32px;
+  height:32px;
+  border:1px solid var(--border);
+  border-radius:50%;
+  background:var(--surface);
+  color:var(--muted);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:16px;
+  transition:all var(--transition);
+}
+.lang-swap:hover{border-color:var(--accent);color:var(--accent);transform:rotate(180deg)}
+
+.textarea{
+  width:100%;
+  min-height:80px;
+  max-height:120px;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--bg);
+  color:var(--text);
+  font-size:14px;
+  line-height:1.6;
+  font-family:var(--font);
+  resize:vertical;
+  transition:border-color var(--transition);
+}
+.textarea::placeholder{color:var(--faint)}
+.textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-light)}
+
+/* ---- 翻译按钮 ---- */
+.translate-btn{
+  width:100%;
+  padding:14px;
+  margin-top:12px;
+  border:none;
+  border-radius:var(--radius);
+  background:linear-gradient(135deg,var(--accent) 0%,var(--accent-ink) 100%);
+  color:#fff;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all var(--transition);
+  box-shadow:var(--shadow);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.translate-btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+.translate-btn:active{transform:translateY(0)}
+.translate-btn:disabled{opacity:.6;cursor:not-allowed}
+.translate-btn .spinner{
+  width:16px;
+  height:16px;
+  border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+  display:none;
+}
+.translate-btn.loading .spinner{display:block}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---- 结果区 ---- */
+.result-section{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  padding:16px;
+  overflow:hidden;
+}
+.result-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:8px;
+}
+.result-label{
+  font-size:11px;
+  font-weight:600;
+  color:var(--ok);
+  text-transform:uppercase;
+  letter-spacing:.5px;
+}
+.result-actions{
+  display:flex;
+  gap:4px;
+}
+.icon-btn{
+  width:28px;
+  height:28px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--surface);
+  color:var(--muted);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  transition:all var(--transition);
+}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+.icon-btn.speaking{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* 语音输入按钮 */
+.input-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.mic-btn {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mic-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+}
+.mic-btn.recording {
+  border-color: var(--err);
+  background: var(--err);
+  color: #fff;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+.mic-status {
+  font-size: 11px;
+  color: var(--muted);
+  flex: 1;
+}
+
+.result-card{
+  flex:1;
+  padding:16px;
+  background:var(--ok-light);
+  border:1px solid #bbf7d0;
+  border-radius:var(--radius);
+  overflow:auto;
+}
+@media (prefers-color-scheme: dark){
+  .result-card{background:#14532d;border-color:#166534}
+}
+.result-text{
+  font-size:15px;
+  line-height:1.7;
+  color:var(--text);
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.result-placeholder{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100%;
+  color:var(--faint);
+  text-align:center;
+}
+.result-placeholder .icon{font-size:32px;margin-bottom:8px;opacity:.5}
+.result-placeholder p{font-size:13px;max-width:200px}
+
+/* ---- 底部工具栏 ---- */
+.toolbar{
+  display:flex;
+  gap:8px;
+  padding:12px 16px;
+  background:var(--surface);
+  border-top:1px solid var(--border);
+}
+.tool-btn{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  padding:8px 4px;
+  border:none;
+  border-radius:var(--radius-sm);
+  background:transparent;
+  color:var(--muted);
+  font-size:11px;
+  cursor:pointer;
+  transition:all var(--transition);
+}
+.tool-btn:hover{background:var(--surface-2);color:var(--accent)}
+.tool-btn .icon{font-size:18px}
+
+/* ---- OCR Tab 内容 ---- */
+.ocr-section{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100%;
+  padding:32px 24px;
+  text-align:center;
+}
+.drop-zone{
+  width:100%;
+  padding:40px 20px;
+  border:2px dashed var(--border-strong);
+  border-radius:var(--radius);
+  background:var(--surface-2);
+  cursor:pointer;
+  transition:all var(--transition);
+}
+.drop-zone:hover,.drop-zone.drag{
+  border-color:var(--accent);
+  background:var(--accent-light);
+}
+.drop-zone .icon{font-size:40px;margin-bottom:12px;opacity:.6}
+.drop-zone h3{font-size:15px;margin-bottom:4px;color:var(--text)}
+.drop-zone p{font-size:12px;color:var(--muted)}
+.ocr-preview{
+  width:100%;
+  max-height:200px;
+  object-fit:contain;
+  border-radius:var(--radius-sm);
+  margin-top:12px;
+  display:none;
+}
+
+/* ---- 设置面板 ---- */
+.settings-panel{
+  position:absolute;
+  top:0;
+  right:0;
+  bottom:0;
+  width:100%;
+  background:var(--surface);
+  transform:translateX(100%);
+  transition:transform var(--transition);
+  z-index:100;
+  display:flex;
+  flex-direction:column;
+}
+.settings-panel.open{transform:translateX(0)}
+.settings-hd{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:16px;
+  border-bottom:1px solid var(--border);
+}
+.settings-hd h2{font-size:16px;font-weight:600}
+.settings-hd .back-btn{
+  width:32px;
+  height:32px;
+  border:none;
+  background:var(--surface-2);
+  border-radius:8px;
+  cursor:pointer;
+  font-size:18px;
+  color:var(--text);
+}
+.settings-content{
+  flex:1;
+  padding:16px;
+  overflow:auto;
+}
+.setting-group{margin-bottom:24px}
+.setting-group h3{
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.5px;
+  margin-bottom:12px;
+}
+.setting-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 0;
+  border-bottom:1px solid var(--border);
+}
+.setting-item:last-child{border:none}
+.setting-item label{font-size:13px;color:var(--text)}
+.setting-item select{
+  padding:6px 10px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--bg);
+  font-size:12px;
+  color:var(--text);
+}
+
+/* ---- Toast ---- */
+.toast{
+  position:fixed;
+  bottom:80px;
+  left:50%;
+  transform:translateX(-50%) translateY(20px);
+  padding:10px 20px;
+  background:var(--text);
+  color:var(--surface);
+  font-size:13px;
+  border-radius:20px;
+  box-shadow:var(--shadow-lg);
+  opacity:0;
+  pointer-events:none;
+  transition:all var(--transition);
+  z-index:200;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.error{background:var(--err)}
+
+/* ---- 滚动条 ---- */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ---- 动画 ---- */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.fade-in{animation:fadeIn var(--transition) both}
+</style>
+</head>
+<body>
+<!-- 顶部导航 -->
+<nav class="nav">
+  <h1>WinOCR <span class="version">v0.8</span></h1>
+  <button class="settings-btn" id="openSettings" title="设置">⚙️</button>
+</nav>
+
+<!-- Tab 切换 -->
+<div class="tabs" role="tablist">
+  <button class="tab active" data-tab="translate" role="tab">翻译 <span class="badge"></span></button>
+  <button class="tab" data-tab="ocr" role="tab">OCR <span class="badge"></span></button>
+  <button class="tab" data-tab="ai" role="tab">AI <span class="badge"></span></button>
+</div>
+
+<!-- 主内容 -->
+<div class="main" id="mainContent">
+  <!-- 翻译 Tab -->
+  <div class="tab-panel" id="panel-translate">
+    <div class="input-section">
+      <div class="lang-bar">
+        <select class="lang-select" id="srcLang">
+          <option value="auto">自动检测</option>
+          <option value="en">英语</option>
+          <option value="zh">中文</option>
+          <option value="ja">日语</option>
+        </select>
+        <button class="lang-swap" id="swapLang" title="交换语言">⇄</button>
+        <select class="lang-select" id="tgtLang">
+          <option value="zh">中文</option>
+          <option value="en">英语</option>
+          <option value="ja">日语</option>
+        </select>
+      </div>
+      <textarea class="textarea" id="inputText" placeholder="输入或粘贴文本...&#10;Ctrl+Enter 快速翻译&#10;或点击 🎤 语音输入"></textarea>
+      <div class="input-actions">
+        <button class="mic-btn" id="micBtn" title="语音输入">🎤</button>
+        <span class="mic-status" id="micStatus"></span>
+      </div>
+      <button class="translate-btn" id="translateBtn">
+        <span class="spinner"></span>
+        <span class="text">翻译 →</span>
+      </button>
+    </div>
+    <div class="result-section">
+      <div class="result-header">
+        <span class="result-label">译文</span>
+        <div class="result-actions">
+          <button class="icon-btn" id="copyResult" title="复制">📋</button>
+          <button class="icon-btn" id="speakResult" title="朗读">🔊</button>
+          <button class="icon-btn" id="saveResult" title="收藏">⭐</button>
+        </div>
+      </div>
+      <div class="result-card" id="resultCard">
+        <div class="result-placeholder">
+          <div class="icon">💬</div>
+          <p>译文将显示在此<br>划词后自动翻译</p>
+        </div>
+        <div class="result-text" id="resultText" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OCR Tab -->
+  <div class="tab-panel" id="panel-ocr" style="display:none">
+    <div class="ocr-section">
+      <div class="drop-zone" id="dropZone">
+        <div class="icon">📷</div>
+        <h3>拖入或粘贴图片</h3>
+        <p>Ctrl+V 粘贴 / 点击选择图片</p>
+        <img class="ocr-preview" id="ocrPreview" />
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Tab -->
+  <div class="tab-panel" id="panel-ai" style="display:none">
+    <div class="ocr-section">
+      <div class="drop-zone">
+        <div class="icon">🤖</div>
+        <h3>AI 对话</h3>
+        <p>输入问题开始对话</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部工具栏 -->
+<div class="toolbar">
+  <button class="tool-btn" id="btnHistory">
+    <span class="icon">📝</span>
+    <span>历史</span>
+  </button>
+  <button class="tool-btn" id="btnStudy">
+    <span class="icon">📚</span>
+    <span>学习</span>
+  </button>
+  <button class="tool-btn" id="btnExport">
+    <span class="icon">📤</span>
+    <span>导出</span>
+  </button>
+  <button class="tool-btn" id="btnSettings">
+    <span class="icon">⚙️</span>
+    <span>设置</span>
+  </button>
+</div>
+
+<!-- 设置面板 -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-hd">
+    <button class="back-btn" id="closeSettings">←</button>
+    <h2>设置</h2>
+  </div>
+  <div class="settings-content">
+    <div class="setting-group">
+      <h3>翻译引擎</h3>
+      <div class="setting-item">
+        <label>默认引擎</label>
+        <select>
+          <option>SiliconFlow</option>
+          <option>MyMemory</option>
+          <option>Ollama</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>API Key</label>
+        <select><option>已配置</option></select>
+      </div>
+    </div>
+    <div class="setting-group">
+      <h3>OCR 设置</h3>
+      <div class="setting-item">
+        <label>本地引擎</label>
+        <select>
+          <option>PP-OCRv6 Tiny</option>
+          <option>PP-OCRv6 Small</option>
+          <option>PP-OCRv6 Medium</option>
+        </select>
+      </div>
+    </div>
+    <div class="setting-group">
+      <h3>🎤 语音输入 (ASR)</h3>
+      <div class="setting-item">
+        <label>ASR 引擎</label>
+        <select id="asrEngine">
+          <option value="browser">浏览器内置（零依赖，需联网）</option>
+          <option value="sf">SiliconFlow（高质量，需联网）</option>
+          <option value="whisper">本地 Whisper（离线，需模型）</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>识别语言</label>
+        <select id="asrLang">
+          <option value="auto">自动检测</option>
+          <option value="zh">中文</option>
+          <option value="en">英文</option>
+          <option value="ko">韩语</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>SiliconFlow ASR 模型</label>
+        <select id="sfAsrModel">
+          <option value="FunAudioLLM/SenseVoiceSmall">SenseVoice（推荐）</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <label>自动发送识别结果</label>
+        <div class="toggle" id="toggleAutoSendAsr"></div>
+      </div>
+    </div>
+    <div class="setting-group">
+      <h3>🔊 语音输出 (TTS)</h3>
+      <div class="setting-item">
+        <label>默认语音</label>
+        <select id="ttsVoice">
+          <option value="auto">自动选择</option>
+          <option value="zh-CN-XiaoxiaoNeural">中文-晓晓（女声）</option>
+          <option value="zh-CN-YunxiNeural">中文-云希（男声）</option>
+          <option value="en-US-JennyNeural">英文-Jenny（女声）</option>
+          <option value="en-US-GuyNeural">英文-Guy（男声）</option>
+          <option value="ko-KR-SunHiNeural">韩语-顺熙（女声）</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>语速</label>
+        <select id="ttsRate">
+          <option value="0.8">0.8x 慢速</option>
+          <option value="1.0" selected>1.0x 正常</option>
+          <option value="1.2">1.2x 快速</option>
+          <option value="1.5">1.5x 极速</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>音调</label>
+        <select id="ttsPitch">
+          <option value="0.8">低沉</option>
+          <option value="1.0" selected>正常</option>
+          <option value="1.2">高亢</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <label>自动朗读译文</label>
+        <div class="toggle" id="toggleAutoSpeak"></div>
+      </div>
+    </div>
+      <div class="setting-item">
+        <label>版本</label>
+        <span style="font-size:12px;color:var(--muted)">v0.8.0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+script src="js/common.js"></script>
+<script>
+// Tab 切换
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const tabName = tab.dataset.tab;
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('panel-' + tabName).style.display = 'block';
+  });
+});
+
+// 翻译按钮
+document.getElementById('translateBtn').addEventListener('click', () => {
+  const btn = document.getElementById('translateBtn');
+  const input = document.getElementById('inputText').value.trim();
+  if (!input) return;
+  
+  btn.classList.add('loading');
+  btn.disabled = true;
+  
+  // 模拟翻译
+  setTimeout(() => {
+    btn.classList.remove('loading');
+    btn.disabled = false;
+    document.getElementById('resultText').textContent = '这是翻译结果的示例文本。';
+    document.getElementById('resultText').style.display = 'block';
+    document.querySelector('.result-placeholder').style.display = 'none';
+  }, 1000);
+});
+
+// 设置面板
+document.getElementById('openSettings').addEventListener('click', () => {
+  document.getElementById('settingsPanel').classList.add('open');
+});
+document.getElementById('closeSettings').addEventListener('click', () => {
+  document.getElementById('settingsPanel').classList.remove('open');
+});
+
+// Toast
+function showToast(msg, isError) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// TTS (Web Speech API) 语音朗读功能
+// ============================================================
+const TTS = {
+  synth: window.speechSynthesis,
+  voices: [],
+  currentUtterance: null,
+
+  // 初始化语音列表
+  init() {
+    if (!this.synth) return;
+    this.voices = this.synth.getVoices();
+    this.synth.onvoiceschanged = () => {
+      this.voices = this.synth.getVoices();
+    };
+  },
+
+  // 获取适合语言的语音
+  getVoice(lang) {
+    if (!this.voices.length) {
+      this.voices = this.synth.getVoices();
+    }
+    const langMap = {
+      'zh': 'zh-CN',
+      'en': 'en-US',
+      'ko': 'ko-KR',
+      'fr': 'fr-FR',
+      'de': 'de-DE'
+    };
+    const targetLang = langMap[lang] || lang || 'zh-CN';
+    
+    // 查找匹配的语音
+    let voice = this.voices.find(v => v.lang === targetLang);
+    if (!voice) voice = this.voices.find(v => v.lang.startsWith(lang));
+    if (!voice) voice = this.voices[0]; // 默认第一个
+    
+    return voice;
+  },
+
+  // 朗读文本
+  speak(text, lang, options = {}) {
+    if (!this.synth || !text) return;
+    
+    // 停止当前朗读
+    this.stop();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = options.voice || this.getVoice(lang);
+    utterance.rate = options.rate || parseFloat(document.getElementById('ttsRate')?.value || 1.0);
+    utterance.pitch = options.pitch || parseFloat(document.getElementById('ttsPitch')?.value || 1.0);
+    utterance.lang = options.lang || (lang === 'zh' ? 'zh-CN' : lang === 'en' ? 'en-US' : 'ko-KR');
+    
+    utterance.onstart = () => {
+      const btn = document.getElementById('speakResult');
+      if (btn) { btn.textContent = '🔊'; btn.classList.add('speaking'); }
+    };
+    
+    utterance.onend = () => {
+      const btn = document.getElementById('speakResult');
+      if (btn) { btn.textContent = '🔈'; btn.classList.remove('speaking'); }
+    };
+    
+    utterance.onerror = (e) => {
+      console.warn('[TTS] 朗读失败:', e);
+      const btn = document.getElementById('speakResult');
+      if (btn) { btn.textContent = '🔈'; btn.classList.remove('speaking'); }
+    };
+    
+    this.currentUtterance = utterance;
+    this.synth.speak(utterance);
+  },
+
+  // 停止朗读
+  stop() {
+    if (this.synth) {
+      this.synth.cancel();
+    }
+    const btn = document.getElementById('speakResult');
+    if (btn) { btn.textContent = '🔈'; btn.classList.remove('speaking'); }
+  },
+
+  // 切换朗读/停止
+  toggle(text, lang) {
+    if (this.synth.speaking) {
+      this.stop();
+    } else {
+      this.speak(text, lang);
+    }
+  }
+};
+
+// 初始化 TTS
+TTS.init();
+
+// 朗读按钮
+document.getElementById('speakResult').addEventListener('click', () => {
+  const text = document.getElementById('resultText').textContent;
+  if (!text) return;
+  TTS.toggle(text, document.getElementById('tgtLang').value);
+});
+
+// 监听语言变化
+document.getElementById('tgtLang')?.addEventListener('change', () => {
+  TTS.stop();
+});
+
+// ============================================================
+// ASR (语音识别) 功能 - 三种引擎可选
+// ============================================================
+const ASR = {
+  recognition: null,
+  isRecording: false,
+  engine: 'browser', // browser | sf | whisper
+
+  // 初始化浏览器 Web Speech API
+  initBrowser() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return false;
+    
+    this.recognition = new SpeechRecognition();
+    this.recognition.continuous = false;
+    this.recognition.interimResults = true;
+    
+    this.recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      document.getElementById('inputText').value = transcript;
+      document.getElementById('micStatus').textContent = event.results[0].isFinal ? '✅ 识别完成' : '📝 识别中...';
+      
+      if (event.results[0].isFinal) {
+        this.stop();
+        // 自动发送识别结果
+        if (document.getElementById('toggleAutoSendAsr')?.classList.contains('on')) {
+          document.getElementById('translateBtn')?.click();
+        }
+      }
+    };
+    
+    this.recognition.onerror = (event) => {
+      console.warn('[ASR] 识别错误:', event.error);
+      this.stop();
+      document.getElementById('micStatus').textContent = '❌ 识别失败';
+    };
+    
+    this.recognition.onend = () => {
+      this.stop();
+    };
+    
+    return true;
+  },
+
+  // 开始录音
+  async start() {
+    if (this.isRecording) {
+      this.stop();
+      return;
+    }
+
+    const engine = document.getElementById('asrEngine')?.value || 'browser';
+    this.engine = engine;
+
+    if (engine === 'browser') {
+      if (!this.initBrowser()) {
+        showToast('浏览器不支持语音识别', true);
+        return;
+      }
+      const lang = document.getElementById('asrLang')?.value || 'zh-CN';
+      this.recognition.lang = lang === 'auto' ? 'zh-CN' : lang;
+      this.recognition.start();
+      this.isRecording = true;
+      this.updateUI();
+    } else if (engine === 'sf') {
+      // SiliconFlow ASR - 通过 background script 处理
+      this.startRecording();
+      showToast('SiliconFlow ASR 需要 background 支持', false);
+      // 实际实现需要调用 chrome.runtime.sendMessage
+    } else if (engine === 'whisper') {
+      showToast('本地 Whisper 功能开发中', true);
+    }
+  },
+
+  // 停止录音
+  stop() {
+    if (this.recognition) {
+      this.recognition.stop();
+    }
+    this.isRecording = false;
+    this.updateUI();
+  },
+
+  // 更新 UI
+  updateUI() {
+    const btn = document.getElementById('micBtn');
+    const status = document.getElementById('micStatus');
+    
+    if (this.isRecording) {
+      btn.classList.add('recording');
+      status.textContent = '🔴 录音中... 点击停止';
+    } else {
+      btn.classList.remove('recording');
+      status.textContent = '';
+    }
+  },
+
+  // 录音处理（用于 SF API）
+  async startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      const audioChunks = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        this.sendToSiliconFlow(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      this.isRecording = true;
+      this.updateUI();
+
+      // 自动停止（最长 30 秒）
+      setTimeout(() => {
+        if (mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+          this.stop();
+        }
+      }, 30000);
+    } catch (e) {
+      showToast('无法访问麦克风: ' + e.message, true);
+    }
+  },
+
+  // 发送到 SiliconFlow ASR
+  async sendToSiliconFlow(audioBlob) {
+    // 实际实现需要调用 SiliconFlow API
+    showToast('SiliconFlow ASR 处理中...', false);
+    // TODO: 实现 API 调用
+    document.getElementById('micStatus').textContent = '✅ 已发送';
+  },
+
+  // 切换
+  toggle() {
+    if (this.isRecording) {
+      this.stop();
+    } else {
+      this.start();
+    }
+  }
+};
+
+// 麦克风按钮
+document.getElementById('micBtn').addEventListener('click', () => {
+  ASR.toggle();
+});
+</script>
+</body>
+</html>

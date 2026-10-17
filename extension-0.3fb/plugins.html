@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WinOCR 插件</title>
+  <style>
+    body { font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif; margin: 0; padding: 16px; color: #222; background: #f5f7fa; }
+    h2 { margin: 0 0 4px; font-size: 17px; }
+    .sub { color: #888; font-size: 12px; margin-bottom: 12px; }
+    .empty { border: 1px dashed #cfd8e3; border-radius: 10px; padding: 28px; text-align: center; color: #8a8a8a; background: #fff; }
+    .note { background: #fff; border: 1px solid #e6ebf2; border-radius: 10px; padding: 12px 14px; margin-top: 14px; font-size: 13px; color: #555; }
+    .note b { color: #1677ff; }
+    code { background: #eef2f7; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+    button { font: 13px system-ui; padding: 5px 12px; border-radius: 6px; border: 1px solid #d9d9d9; background: #fff; cursor: pointer; }
+    button.primary { background: #1677ff; color: #fff; border-color: #1677ff; }
+  </style>
+</head>
+<body>
+  <h2>WinOCR 插件</h2>
+  <div class="sub">扩展翻译 / 识别 / 语音 / 生词本 / 划词动作的扩展点（S6 / 3.10，P2 占位）。</div>
+
+  <div class="empty">
+    <p>暂无已安装插件</p>
+    <button class="primary" id="add" disabled title="插件加载器待建">添加插件…</button>
+  </div>
+
+  <div class="note">
+    <p><b>设计目标</b>：以自有代码实现扩展点，<b>不复制</b> Pot / Bob 的专有源码；但插件描述格式将<strong>兼容 Pot / Bob 的 manifest 约定</strong>（如 <code>plugin.json</code> 的 <code>name</code> / <code>description</code> / <code>entry</code> / <code>hooks</code> 字段），便于社区迁移现有插件。</p>
+    <p><b>暴露的钩子（规划中）</b>：<code>translate.before</code> / <code>translate.after</code>（改写请求与结果）、<code>ocr.after</code>（后处理识别文本）、<code>tts.before</code>（朗读前替换）、<code>selection.action</code>（划词动作扩展）。宿主侧将在 Rust 暴露对应的 action 钩子，扩展侧通过 content script 注入点挂载。</p>
+    <p class="sub">当前为占位页；真正的插件运行时与加载器为后续迭代（见 <code>交付.md</code> 任务 #78）。</p>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/plugins.js"></script>
+</body>
+</html>

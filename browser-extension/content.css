@@ -1,0 +1,6 @@
+/* WinOCR 划词助手 - Content 样式（备用）
+ * 实际气泡样式在 content.js 的 Shadow DOM 内联 <style> 中，
+ * 此文件保留以便扩展在 CSP 严格页面也能加载。 */
+#winocr-shadow-host {
+  all: initial;
+}

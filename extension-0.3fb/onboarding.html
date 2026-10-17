@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WinOCR-Html 首次运行引导</title>
+  <style>
+    :root {
+      --accent: #1677ff;
+      --accent-weak: #e8f1ff;
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #1f2329;
+      --muted: #8a9099;
+      --ok: #18a058;
+      --border: #e6e9ef;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font: 14px/1.65 system-ui, "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      width: 560px; max-width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(20, 40, 80, 0.08);
+      overflow: hidden;
+    }
+    .header {
+      padding: 22px 26px 0;
+    }
+    .progress {
+      display: flex; gap: 6px; margin-bottom: 18px;
+    }
+    .progress .bar {
+      flex: 1; height: 4px; border-radius: 3px; background: var(--border);
+      transition: background .25s;
+    }
+    .progress .bar.active { background: var(--accent); }
+    .progress .bar.done { background: var(--ok); }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+    .body { padding: 0 26px 8px; min-height: 196px; }
+    .step { display: none; }
+    .step.show { display: block; }
+    label { display: block; font-weight: 600; margin: 14px 0 6px; }
+    .opt {
+      display: flex; gap: 10px; align-items: flex-start;
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; margin: 8px 0; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .opt:hover { border-color: var(--accent); }
+    .opt.sel { border-color: var(--accent); background: var(--accent-weak); }
+    .opt input { margin-top: 3px; }
+    .opt .t { font-weight: 600; }
+    .opt .d { color: var(--muted); font-size: 12.5px; }
+    input[type=text], input[type=password], select {
+      font: 13px system-ui; padding: 7px 9px; width: 100%;
+      border: 1px solid var(--border); border-radius: 8px; background: #fff;
+    }
+    .row { display: flex; gap: 10px; }
+    .row > div { flex: 1; }
+    .hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 0; }
+    .kbd {
+      display: inline-block; font: 12px Consolas, monospace;
+      background: #f0f3f8; border: 1px solid var(--border);
+      border-bottom-width: 2px; border-radius: 6px; padding: 2px 8px; margin: 2px;
+    }
+    .callout {
+      background: var(--accent-weak); border: 1px solid #cfe2ff;
+      border-radius: 10px; padding: 12px 14px; margin-top: 12px;
+    }
+    .trybox {
+      text-align: center; padding: 10px 0 4px;
+    }
+    .trybox .big { font-size: 15px; font-weight: 600; }
+    .trybox .kbd { font-size: 14px; padding: 6px 14px; margin: 10px 0; }
+    .success {
+      display: none; text-align: center; padding: 18px 0;
+    }
+    .success.show { display: block; }
+    .check {
+      width: 54px; height: 54px; border-radius: 50%; background: var(--ok);
+      color: #fff; font-size: 30px; line-height: 54px; margin: 0 auto 12px;
+    }
+    .footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 26px; border-top: 1px solid var(--border); background: #fafbfd;
+    }
+    .dots { color: var(--muted); font-size: 12.5px; }
+    button {
+      font: 13px system-ui; padding: 9px 18px; border-radius: 8px;
+      border: 1px solid var(--accent); background: var(--accent); color: #fff;
+      cursor: pointer; transition: opacity .15s;
+    }
+    button:disabled { opacity: .45; cursor: default; }
+    button.ghost { background: #fff; color: var(--accent); }
+    button.skip { background: transparent; border-color: transparent; color: var(--muted); }
+    .err { color: #c0392b; font-size: 12.5px; margin-top: 8px; min-height: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="progress" id="progress"></div>
+      <h1 id="title">欢迎使用 WinOCR-Html</h1>
+      <p class="sub" id="subtitle"></p>
+    </div>
+
+    <div class="body">
+      <!-- 步骤 1：欢迎 / 语言 -->
+      <section class="step" data-step="1">
+        <p>一个全场景 OCR 翻译工具：<b>截图翻译</b>、<b>浏览器划词/悬停翻译</b>、<b>本地模型离线可用</b>。</p>
+        <p class="hint">下面 5 步只需 1 分钟，每一步都可跳过；全程<b>不索取任何 API Key</b> 也能用。</p>
+        <label>界面与翻译默认语言</label>
+        <div class="row">
+          <div>
+            <select id="uiLang">
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div>
+            <select id="srcLang">
+              <option value="en">原文：英文</option>
+              <option value="ja">原文：日文</option>
+              <option value="ko">原文：韩文</option>
+              <option value="fr">原文：法文</option>
+              <option value="auto">原文：自动检测</option>
+            </select>
+          </div>
+          <div>
+            <select id="tgtLang">
+              <option value="zh">译文：中文</option>
+              <option value="en">译文：英文</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- 步骤 2：翻译引擎 -->
+      <section class="step" data-step="2">
+        <label>选择翻译引擎</label>
+        <div class="opt sel" data-engine="mymemory">
+          <input type="radio" name="engine" value="mymemory" checked />
+          <div>
+            <div class="t">免费引擎（无需 Key）· 推荐起步</div>
+            <div class="d">MyMemory / 浏览器内置：零配置、国内可直连、匿名即用。额度用尽会自动提示。</div>
+          </div>
+        </div>
+        <div class="opt" data-engine="sf">
+          <input type="radio" name="engine" value="sf" />
+          <div>
+            <div class="t">SiliconFlow（质量更好 · 需自备 Key）</div>
+            <div class="d">填你自己的 Key 即可，费用归你；不填也能先用免费引擎。</div>
+          </div>
+        </div>
+        <div id="sfBox" style="display:none">
+          <label>SiliconFlow Key</label>
+          <input type="password" id="sfKey" placeholder="sk-...（可稍后在设置里填）" />
+          <p class="hint">Key 仅存于本机，经系统加密（DPAPI）落盘，不会上传给任何人。</p>
+        </div>
+      </section>
+
+      <!-- 步骤 3：快捷键确认 -->
+      <section class="step" data-step="3">
+        <label>截图翻译热键（默认）</label>
+        <div class="callout">
+          <span class="kbd">Alt</span>+<span class="kbd">Q</span> 唤起截图选区<br>
+          <span class="kbd">Ctrl</span>+<span class="kbd">Alt</span>+<span class="kbd">Q</span> 退出宿主<br>
+          <span class="kbd">Ctrl</span>+<span class="kbd">Alt</span>+<span class="kbd">P</span> 暂停 / 恢复
+        </div>
+        <p class="hint">浏览器内划词翻译用扩展快捷键（<span class="kbd">Alt</span>+<span class="kbd">Shift</span>+<span class="kbd">Z</span>），可在 <code>edge://extensions/shortcuts</code> 修改。</p>
+        <p class="hint">这些键都能在「设置 → 截图热键」里重新录入并即时生效，不习惯现在也不用改。</p>
+        <div class="err" id="hotkeyErr"></div>
+      </section>
+
+      <!-- 步骤 4：模型与精度 -->
+      <section class="step" data-step="4">
+        <label>本地 OCR 模型</label>
+        <div class="opt sel" data-tier="tiny">
+          <input type="radio" name="tier" value="tiny" checked />
+          <div>
+            <div class="t">tiny 模型（6.6MB，已内置）</div>
+            <div class="d">离线即可 OCR，约 1.2–2.2 秒，日常够用。推荐起步。</div>
+          </div>
+        </div>
+        <div class="opt" data-tier="medium">
+          <input type="radio" name="tier" value="medium" />
+          <div>
+            <div class="t">medium 模型（更准 · 需另下载 133MB）</div>
+            <div class="d">复杂版面/手写更稳；可在设置里「下载语言包」按需获取。</div>
+          </div>
+        </div>
+        <p class="hint">无网络环境下 tiny 已随安装包内置；选 medium 只是<b>晚一点</b>下载，不影响现在使用。</p>
+      </section>
+
+      <!-- 步骤 5：试一次 -->
+      <section class="step" data-step="5">
+        <div class="trybox">
+          <div class="big">最后一步：试一次 🎯</div>
+          <p>按下 <span class="kbd">Alt</span>+<span class="kbd">Q</span> 框选任意一段<b>英文</b>，看看译文。</p>
+          <p class="hint">（这一部不能跳过 —— 只有真的成功一次，引导才算完成。）</p>
+          <div id="tryState" class="hint"></div>
+        </div>
+        <div class="success" id="success">
+          <div class="check">✓</div>
+          <div class="big">成了！翻译已经跑通 🎉</div>
+          <p class="hint">壳会常驻后台；需要时右键托盘可暂停 / 退出 / 打开设置。</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="footer">
+      <button class="skip" id="skipBtn">跳过此步</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="dots" id="dots"></span>
+        <button class="ghost" id="prevBtn">上一步</button>
+        <button id="nextBtn">下一步</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="onboarding.js"></script>
+</body>
+</html>

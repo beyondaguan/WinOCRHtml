@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>WinOCR-Html</title>
+<style>
+/* =========================================================================
+   WinOCR-Html 面板 · 定调：工业实用（Industrial / utilitarian）
+   受众：边读边译边积累的个人使用者；语境：360px 宽浏览器弹窗 / 常驻侧栏
+   决策：暖白主表面 + 单一强调色 #1677ff（延续项目既有品牌色，非默认蓝）
+        中文优先字体栈（不引外链字体：国内不可达 + 扩展需离线自足）
+        数据/标签用等宽 + tabular-nums；发丝边框 + 三级阴影 + 自绘细滚动条
+   记忆点：自绘滚动条 + 分节错峰入场 + 悬停左侧强调条
+   ========================================================================= */
+/* ---- tokens ---- */
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --surface-2:#f8fafc; --surface-3:#eef2f7;
+  --text:#12181f; --muted:#66717e; --faint:#98a3b0;
+  --border:rgba(18,24,31,.10); --border-strong:rgba(18,24,31,.18);
+  --accent:#1677ff; --accent-ink:#0b57c7; --accent-soft:rgba(22,119,255,.10); --accent-line:rgba(22,119,255,.30);
+  --ok:#0f8f52; --err:#c0392b; --warn:#b7791f;
+  --fs-1:11px; --fs-2:12px; --fs-3:13px; --fs-4:15px; --fs-5:20px;
+  --sp-1:4px; --sp-2:6px; --sp-3:10px; --sp-4:14px; --sp-5:20px;
+  --r-1:6px; --r-2:10px; --r-3:14px;
+  --sh-1:0 1px 2px rgba(18,24,31,.06);
+  --sh-2:0 6px 18px rgba(18,24,31,.10);
+  --sh-3:0 24px 60px rgba(18,24,31,.16);
+  --ease:cubic-bezier(.16,1,.3,1); --dur-1:160ms; --dur-2:320ms;
+  --sans:"PingFang SC","Microsoft YaHei UI","Microsoft YaHei","Hiragino Sans GB","Segoe UI",sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1216; --surface:#171b21; --surface-2:#1d222a; --surface-3:#232a33;
+    --text:#e8edf3; --muted:#9aa6b4; --faint:#6d7886;
+    --border:rgba(232,237,243,.10); --border-strong:rgba(232,237,243,.22);
+    --accent:#4c9aff; --accent-ink:#9cc6ff; --accent-soft:rgba(76,154,255,.16); --accent-line:rgba(76,154,255,.38);
+    --ok:#3ecf8e; --err:#ff6b5e; --warn:#e0b050;
+    --sh-1:0 1px 2px rgba(0,0,0,.45);
+    --sh-2:0 8px 24px rgba(0,0,0,.55);
+    --sh-3:0 24px 60px rgba(0,0,0,.65);
+  }
+}
+/* ---- base ---- */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  min-width:340px; background:var(--bg); color:var(--text);
+  font:var(--fs-3)/1.6 var(--sans);
+  letter-spacing:.01em;
+  -webkit-font-smoothing:antialiased;
+}
+/* 自绘滚动条（面板内所有可滚动区域） */
+*{scrollbar-width:thin; scrollbar-color:var(--border-strong) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{
+  background:var(--border-strong); border-radius:100px;
+  border:3px solid transparent; background-clip:content-box;
+}
+::-webkit-scrollbar-thumb:hover{background:var(--muted); background-clip:content-box; border:3px solid transparent}
+::-webkit-scrollbar-corner{background:transparent}
+
+h1,h2{margin:0; font-weight:650}
+h2{
+  font-size:var(--fs-1); font-weight:700; color:var(--faint);
+  letter-spacing:.14em; text-transform:uppercase;
+}
+code,.mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+
+/* ---- header ---- */
+.hd{
+  position:sticky; top:0; z-index:5;
+  display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3);
+  padding:var(--sp-4) var(--sp-4) var(--sp-3);
+  background:linear-gradient(180deg,var(--surface) 0%,var(--surface) 72%,rgba(255,255,255,0) 100%);
+  border-bottom:1px solid var(--border);
+}
+@media (prefers-color-scheme: dark){
+  .hd{background:linear-gradient(180deg,var(--surface) 0%,var(--surface) 72%,rgba(23,27,33,0) 100%)}
+}
+.hd .title{display:flex; align-items:baseline; gap:var(--sp-2)}
+.hd h1{font-size:var(--fs-5); letter-spacing:-.02em}
+.hd .tag{
+  font-family:var(--mono); font-size:var(--fs-1); color:var(--faint);
+  letter-spacing:.06em;
+}
+.hd .sub{font-size:var(--fs-2); color:var(--muted); margin-top:1px}
+.badge{
+  display:inline-flex; align-items:center; gap:5px; flex:0 0 auto;
+  font-family:var(--mono); font-size:var(--fs-1); letter-spacing:.06em;
+  color:var(--accent-ink); background:var(--accent-soft);
+  border:1px solid var(--accent-line);
+  border-radius:100px; padding:3px 9px;
+}
+.badge::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--accent)}
+
+main{padding:var(--sp-4) var(--sp-4) var(--sp-5); display:flex; flex-direction:column; gap:var(--sp-5)}
+section{display:flex; flex-direction:column; gap:var(--sp-3)}
+
+/* 分节错峰入场（一次编排，3–6 组，间隔 80ms） */
+.rv{opacity:0; transform:translateY(14px)}
+.rv.in{opacity:1; transform:none; transition:opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease)}
+.rv:nth-child(1){transition-delay:0ms}
+.rv:nth-child(2){transition-delay:80ms}
+.rv:nth-child(3){transition-delay:160ms}
+.rv:nth-child(4){transition-delay:240ms}
+.rv:nth-child(5){transition-delay:320ms}
+@media (prefers-reduced-motion: reduce){
+  .rv{opacity:1; transform:none}
+  .rv.in{transition:none}
+  *{animation:none !important; transition:none !important}
+}
+
+/* ---- 表单控件 ---- */
+.row{display:flex; gap:var(--sp-2); align-items:center; flex-wrap:wrap}
+.row.sb{justify-content:space-between}
+label.f{font-size:var(--fs-1); color:var(--faint); letter-spacing:.08em; text-transform:uppercase; font-weight:700}
+select,input,textarea,button{font-family:var(--sans); font-size:var(--fs-2); color:var(--text)}
+select,input,textarea{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-1);
+  padding:6px 8px; transition:border-color var(--dur-1) ease-out, box-shadow var(--dur-1) ease-out;
+}
+select:hover,input:hover,textarea:hover{border-color:var(--border-strong)}
+select:focus-visible,input:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent);
+}
+textarea{width:100%; resize:vertical; line-height:1.65; min-height:66px}
+textarea::placeholder,input::placeholder{color:var(--faint)}
+
+button{
+  cursor:pointer; border:1px solid var(--border-strong); background:var(--surface);
+  color:var(--text); border-radius:var(--r-1); padding:6px 11px; min-height:32px;
+  transition:background var(--dur-1) ease-out, border-color var(--dur-1) ease-out,
+             color var(--dur-1) ease-out, transform var(--dur-1) ease-out;
+}
+button:hover{border-color:var(--accent); color:var(--accent-ink); background:var(--accent-soft)}
+button:active{transform:translateY(1px)}
+button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+button:disabled{opacity:.5; cursor:not-allowed}
+button.primary{
+  background:var(--accent); border-color:var(--accent); color:#fff; font-weight:650; min-height:34px;
+  box-shadow:var(--sh-1);
+}
+button.primary:hover{background:var(--accent-ink); border-color:var(--accent-ink); color:#fff}
+/* 主操作：翻译按钮放大（整行全宽 + 44px 点击区） */
+#doTranslate{width:100%; min-height:44px; font-size:14px; font-weight:700; letter-spacing:.04em; border-radius:var(--r-2)}
+button.quiet{background:transparent; border-color:transparent; color:var(--muted); min-height:28px; padding:4px 8px}
+button.quiet:hover{background:var(--surface-3); color:var(--accent-ink); border-color:transparent}
+
+/* ---- 卡片 ---- */
+.card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r-2);
+  padding:var(--sp-3) var(--sp-3); box-shadow:var(--sh-1);
+}
+.card .lab{font-size:var(--fs-1); color:var(--faint); letter-spacing:.08em; text-transform:uppercase; font-weight:700; margin-bottom:4px}
+.card .o{color:var(--muted); white-space:pre-wrap; word-break:break-word}
+.card .t{color:var(--text); white-space:pre-wrap; word-break:break-word; font-size:var(--fs-3); line-height:1.75}
+.card .t:not(:empty){margin-top:8px; padding-top:8px; border-top:1px dashed var(--border)}
+.card .err{color:var(--err); white-space:pre-wrap; word-break:break-word}
+#result{max-height:38vh; overflow:auto; min-height:64px; display:flex; flex-direction:column; justify-content:center}
+#result.is-empty .ph{color:var(--faint); font-size:var(--fs-2)}
+
+/* ---- 截图 OCR 投放区 ---- */
+.drop{
+  border:1px dashed var(--border-strong); border-radius:var(--r-2); padding:var(--sp-4);
+  text-align:center; color:var(--muted); font-size:var(--fs-2);
+  background:var(--surface-2); transition:border-color var(--dur-1) ease-out, background var(--dur-1) ease-out, color var(--dur-1) ease-out;
+}
+.drop b{color:var(--accent-ink); font-weight:650}
+.drop.over{border-color:var(--accent); background:var(--accent-soft); color:var(--accent-ink)}
+
+/* ---- 历史 ---- */
+#hist{display:flex; flex-direction:column; gap:2px; max-height:32vh; overflow:auto; margin:0 -4px}
+#hist .item{
+  position:relative; padding:7px 9px 7px 12px; border-radius:var(--r-1);
+  border:1px solid transparent; transition:background var(--dur-1) ease-out, border-color var(--dur-1) ease-out;
+}
+#hist .item::before{
+  content:""; position:absolute; left:3px; top:8px; bottom:8px; width:2px; border-radius:2px;
+  background:transparent; transition:background var(--dur-1) ease-out;
+}
+#hist .item:hover{background:var(--surface-2); border-color:var(--border)}
+#hist .item:hover::before{background:var(--accent)}
+#hist .meta{
+  font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:var(--fs-1);
+  color:var(--faint); letter-spacing:.04em; display:flex; gap:6px; align-items:center;
+}
+#hist .kind{border:1px solid var(--border-strong); border-radius:4px; padding:0 4px; font-size:10px; color:var(--muted)}
+#hist .o{color:var(--muted); font-size:var(--fs-2); margin-top:2px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+#hist .t{color:var(--text); font-size:var(--fs-2); margin-top:2px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+#hist .empty{color:var(--faint); font-size:var(--fs-2); text-align:center; padding:var(--sp-4) 0}
+
+/* ---- 导出 ---- */
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-2)}
+.grid2 button{justify-content:center}
+
+/* ---- toast（固定定位，不参与布局流） ---- */
+#msg{
+  position:fixed; left:var(--sp-4); right:var(--sp-4); bottom:var(--sp-3); z-index:20;
+  padding:8px 11px; border-radius:var(--r-2); background:var(--surface);
+  border:1px solid var(--border-strong); border-left:3px solid var(--accent);
+  box-shadow:var(--sh-2); font-size:var(--fs-2); color:var(--accent-ink);
+  opacity:0; transform:translateY(8px); pointer-events:none;
+  transition:opacity var(--dur-1) ease-out, transform var(--dur-1) ease-out;
+}
+#msg.show{opacity:1; transform:none}
+#msg.err{color:var(--err); border-left-color:var(--err)}
+
+/* ---- 原生宿主 / 本地配置提示 ---- */
+#hostLine{font-size:var(--fs-2); color:var(--muted); margin-top:var(--sp-2); line-height:1.6; word-break:break-all}
+#hostLine.warn{color:var(--warn)}
+#hostLine code{
+  font-family:var(--mono); font-size:10.5px; color:var(--text);
+  background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:1px 4px;
+}
+#hostLine.ok code{color:var(--accent-ink); border-color:var(--accent-line); background:var(--accent-soft)}
+</style>
+</head>
+<body>
+<header class="hd">
+  <div>
+    <div class="title"><h1>WinOCR</h1><span class="tag">HTML · 0.7.5</span></div>
+    <div class="sub">划词翻译 · OCR · 日积累导出</div>
+  </div>
+  <span class="badge" id="engineBadge">加载中</span>
+</header>
+
+<main>
+  <!-- 翻译 -->
+  <section class="rv">
+    <div class="row sb">
+      <h2>翻译</h2>
+      <div class="row">
+        <label class="f" for="src">源</label>
+        <select id="src"><option>en</option><option>zh</option><option>ja</option><option>auto</option></select>
+        <label class="f" for="tgt">标</label>
+        <select id="tgt"><option>zh</option><option>en</option><option>ja</option></select>
+      </div>
+    </div>
+    <textarea id="input" rows="3" placeholder="输入或粘贴文本 → 翻译（Ctrl+Enter）&#10;也可页面选中后按 Alt+Shift+Z"></textarea>
+    <button id="doTranslate" class="primary">翻译</button>
+    <div class="row">
+      <button id="fromSel">取页面选中</button>
+      <button id="saveRec">记录</button>
+      <button id="copyOut">复制译文</button>
+    </div>
+    <div class="row">
+      <button id="fpTranslate" class="primary">翻译整页</button>
+      <button id="fpRestore">还原原文</button>
+    </div>
+    <div id="result" class="card is-empty"><span class="ph">译文将显示在此 · 划词后本页弹「常驻翻译栏」</span></div>
+  </section>
+
+  <!-- 截图 OCR -->
+  <section class="rv">
+    <h2>截图 OCR</h2>
+    <div class="drop" id="drop">粘贴 <b>Ctrl+V</b> / 拖入 / <b>选择图片</b> → OCR + 翻译</div>
+    <input type="file" id="file" accept="image/*" hidden />
+    <input type="file" id="pdfFile" accept="application/pdf,.pdf" hidden />
+    <div class="row">
+      <button id="pick">选择图片</button>
+      <button id="captureTab">页面截图区域</button>
+    </div>
+    <div class="row">
+      <button id="pickPdf">翻译 PDF 文件</button>
+    </div>
+    <div class="row">
+      <button id="subOn">视频字幕翻译（开）</button>
+      <button id="subOff">视频字幕翻译（关）</button>
+    </div>
+    <div id="hostLine">原生宿主：检测中…</div>
+  </section>
+
+  <!-- AI 对话 -->
+  <section class="rv">
+    <div class="row sb">
+      <h2>AI 对话</h2>
+      <div class="row">
+        <select id="chatEngine" style="font-size:11px;padding:2px 4px">
+          <option value="sf">SiliconFlow</option>
+          <option value="ollama">本地 Ollama</option>
+        </select>
+      </div>
+    </div>
+    <div id="chatMsgs" style="max-height:30vh;overflow:auto;display:flex;flex-direction:column;gap:8px;min-height:60px">
+      <div class="chat-msg ai" style="align-self:flex-start;max-width:85%;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:12px">
+        你好！我是 AI 助手，可以帮你翻译、解释、润色文本。直接输入问题即可。
+      </div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <input id="chatInput" style="flex:1" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" />
+      <button id="chatSend" class="primary" style="min-height:32px">发送</button>
+    </div>
+    <div class="row">
+      <button id="chatClear" class="quiet">清空对话</button>
+      <button id="chatNew" class="quiet">新建对话</button>
+    </div>
+    <div id="chatList" style="max-height:15vh;overflow:auto;margin-top:6px"></div>
+  </section>
+
+  <!-- 学习 -->
+  <section class="rv">
+    <div class="row sb">
+      <h2>学习</h2>
+      <div class="row">
+        <button id="studyAuto" class="quiet">采集生词</button>
+        <button id="studyReview" class="quiet">开始复习</button>
+      </div>
+    </div>
+    <div id="studyStats" class="card" style="padding:8px 10px;font-size:12px;color:var(--muted)">
+      加载中…
+    </div>
+    <div id="reviewArea" style="display:none;margin-top:8px">
+      <div id="reviewCard" class="card" style="padding:12px">
+        <div class="lab">原文</div>
+        <div id="reviewWord" style="font-size:16px;font-weight:600;margin:4px 0"></div>
+        <div class="lab">译文</div>
+        <div id="reviewTrans" style="color:var(--muted);white-space:pre-wrap"></div>
+        <div id="reviewCtx" style="color:var(--faint);font-size:11px;margin-top:6px;white-space:pre-wrap"></div>
+        <div class="row" style="margin-top:10px;gap:4px">
+          <button data-q="1" style="font-size:11px;padding:2px 6px">忘了</button>
+          <button data-q="2" style="font-size:11px;padding:2px 6px">有点印象</button>
+          <button data-q="3" style="font-size:11px;padding:2px 6px">一般</button>
+          <button data-q="4" style="font-size:11px;padding:2px 6px">记住了</button>
+          <button data-q="5" style="font-size:11px;padding:2px 6px">完美</button>
+        </div>
+      </div>
+    </div>
+    <div id="vocabList" style="margin-top:6px;max-height:20vh;overflow:auto"></div>
+  </section>
+
+  <!-- 最近记录 -->
+  <section class="rv">
+    <div class="row sb">
+      <h2>最近记录</h2>
+      <div class="row">
+        <button id="reload" class="quiet">刷新</button>
+        <button id="clear" class="quiet">清空</button>
+      </div>
+    </div>
+    <div id="hist"></div>
+  </section>
+
+  <!-- 导出 -->
+  <section class="rv">
+    <h2>导出</h2>
+    <div class="grid2">
+      <button data-x="folder">文件夹</button>
+      <button data-x="zip">ZIP</button>
+      <button data-x="obsidian">Obsidian</button>
+      <button data-x="lexiang">乐享</button>
+    </div>
+  </section>
+</main>
+
+<div id="msg"></div>
+
+<script src="js/common.js"></script>
+<script src="sidepanel.js"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+[package]
+name = "slint-probe"
+version = "0.1.0"
+edition = "2021"
+
+# 离屏布局量测探针（不进 winocr 依赖图）
+# 用法：
+#   cargo run --manifest-path tools/slint-probe/Cargo.toml -- app/src/ui/main_window.slint out.png 1080 600
+[dependencies]
+slint = { version = "1", default-features = false, features = [
+    "std",
+    "compat-1-2",
+    "renderer-software",
+    # 与 app 工程保持一致：embedded resource（slint 内置 svg 图标）需要 backend 侧的
+    # 资源嵌入支持，否则生成的代码会引用 sp::load_image_from_embedded_data 而编译失败。
+    "backend-winit",
+] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[build-dependencies]
+slint-build = "1"
+
+[[bin]]
+name = "slint-probe"
+path = "main.rs"
+
+[workspace]

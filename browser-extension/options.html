@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>WinOCR 划词助手 · 设置</title>
+<style>
+/* =========================================================================
+   WinOCR 划词助手 · 设置页
+   风格参考 extension-0.8/options_v2.html：卡片折叠 + 渐进披露 + 推荐配置
+   适配当前轻量扩展（Native Messaging 回写桌面端，无云端/OCR 依赖）
+   ========================================================================= */
+:root {
+  --bg: #f8fafc; --surface: #ffffff; --surface-2: #f1f5f9;
+  --text: #0f172a; --muted: #64748b; --faint: #94a3b8;
+  --border: #e2e8f0; --border-strong: #cbd5e1;
+  --accent: #2563eb; --accent-ink: #1d4ed8; --accent-light: #dbeafe;
+  --ok: #16a34a; --ok-light: #dcfce7;
+  --err: #dc2626; --warn: #d97706; --warn-light: #fef3c7;
+  --radius: 12px; --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.1);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --transition: 200ms cubic-bezier(.16,1,.3,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface-2: #334155;
+    --text: #f1f5f9; --muted: #94a3b8; --faint: #64748b;
+    --border: #334155; --border-strong: #475569;
+    --accent: #3b82f6; --accent-ink: #60a5fa; --accent-light: #1e3a8a;
+    --ok: #22c55e; --ok-light: #14532d;
+    --err: #ef4444; --warn: #f59e0b; --warn-light: #451a03;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  padding: 24px 16px 48px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ---- Header ---- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header .logo {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-ink));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+.header .version {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+/* ---- 推荐配置卡片 ---- */
+.recommend-card {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-ink) 100%);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
+}
+.recommend-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.recommend-card p {
+  font-size: 12px;
+  opacity: .92;
+  margin-bottom: 12px;
+}
+.recommend-card .btn-apply {
+  background: rgba(255,255,255,.2);
+  border: 1px solid rgba(255,255,255,.35);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.recommend-card .btn-apply:hover { background: rgba(255,255,255,.32); }
+
+/* ---- 折叠卡片 ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background var(--transition);
+  user-select: none;
+}
+.card-header:hover { background: var(--surface-2); }
+.card-header .title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.card-header .icon {
+  width: 28px; height: 28px;
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.card-header .arrow {
+  color: var(--muted);
+  transition: transform var(--transition);
+  font-size: 12px;
+}
+.card.open .arrow { transform: rotate(180deg); }
+.card-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition);
+}
+.card.open .card-body { max-height: 800px; }
+.card-content { padding: 0 16px 16px; }
+
+/* ---- 表单 ---- */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.field .hint {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+.input-row { display: flex; gap: 8px; align-items: center; }
+.input-row .grow { flex: 1; }
+select, input[type="number"] {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+select:hover, input[type="number"]:hover { border-color: var(--border-strong); }
+select:focus, input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+/* ---- 开关 ---- */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.toggle-row:last-child { border: none; }
+.toggle-row label { font-size: 13px; }
+.toggle-row .hint { margin-top: 2px; }
+.toggle {
+  width: 44px; height: 24px;
+  background: var(--border-strong);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: background var(--transition);
+  flex: 0 0 auto;
+}
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: "";
+  position: absolute;
+  width: 20px; height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  top: 2px; left: 2px;
+  transition: transform var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.toggle.on::after { transform: translateX(20px); }
+
+/* ---- 关于 ---- */
+.about-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.about-row:last-child { border: none; }
+.about-row .k { color: var(--muted); }
+.about-row .v { color: var(--text); font-family: ui-monospace, Consolas, monospace; font-size: 12px; word-break: break-all; text-align: right; max-width: 70%; }
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.status-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.status-pill.on { background: var(--ok-light); color: var(--ok); }
+.status-pill.on .dot { background: var(--ok); }
+.status-pill.off { background: #fee2e2; color: var(--err); }
+.status-pill.off .dot { background: var(--err); }
+
+/* ---- 按钮 ---- */
+.btn {
+  padding: 10px 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-ink); }
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.btn-ghost:hover { background: var(--accent-light); }
+.bottom-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.bottom-bar .btn { flex: 1; }
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all var(--transition);
+  z-index: 100;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: none; }
+.toast.success { background: var(--ok); }
+.toast.error { background: var(--err); }
+
+/* ---- 滚动条 ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+/* ---- 语音检测 ---- */
+.voice-status {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 6px;
+  background: var(--surface-2); margin-bottom: 8px;
+  font-size: 13px;
+}
+.voice-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.voice-dot.ok { background: var(--ok); }
+.voice-dot.warn { background: #f59e0b; }
+.voice-dot.err { background: var(--err); }
+
+.voice-warn {
+  padding: 8px 12px;
+  background: #fef3c7; color: #92400e;
+  border-radius: 6px; font-size: 12px; line-height: 1.5;
+  margin-bottom: 8px;
+}
+.voice-link { color: #b45309; font-weight: 600; }
+
+.btn-mini {
+  padding: 4px 10px; margin: 4px 2px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); border-radius: 6px; font-size: 12px; cursor: pointer;
+}
+.btn-mini:hover { background: var(--surface-2); border-color: var(--accent); }
+
+/* ---- 快捷键 ---- */
+#captureShortcut, #translateShortcut {
+  width: 180px; display: inline-block; margin-right: 6px;
+}
+#captureShortcut.recording, #translateShortcut.recording {
+  border-color: var(--accent); background: var(--accent-light);
+  color: var(--accent-ink);
+}
+.shortcut-tip {
+  font-size: 11px; color: var(--muted); margin-top: 6px;
+  padding: 6px 10px; background: var(--surface-2); border-radius: 4px;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1><span class="logo">W</span> WinOCR 划词助手 · 设置</h1>
+  <span class="version" id="version">v0.1.0</span>
+</header>
+
+<!-- 推荐配置卡片 -->
+<div class="recommend-card">
+  <h3>🌟 推荐配置</h3>
+  <p>自动检测语言 + 划词即弹气泡 + 右键菜单采集，开箱即用，最贴合日常划词翻译。</p>
+  <button class="btn-apply" id="applyRecommended">一键应用推荐配置</button>
+</div>
+
+<!-- 划词翻译设置 -->
+<div class="card open">
+  <div class="card-header">
+    <span class="title"><span class="icon">🌐</span> 划词翻译</span>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="card-body">
+    <div class="card-content">
+      <div class="field">
+        <label>默认源语言</label>
+        <select id="srcLang">
+          <option value="auto">自动检测</option>
+          <option value="en">英语</option>
+          <option value="zh">中文</option>
+          <option value="ja">日语</option>
+          <option value="ko">韩语</option>
+          <option value="fr">法语</option>
+          <option value="de">德语</option>
+        </select>
+        <div class="hint">划词翻译时使用的源语言；「自动检测」按字符集判断（含中文→zh，否则→en）。</div>
+      </div>
+      <div class="field">
+        <label>默认目标语言</label>
+        <select id="tgtLang">
+          <option value="zh">中文</option>
+          <option value="en">英语</option>
+          <option value="ja">日语</option>
+          <option value="ko">韩语</option>
+          <option value="fr">法语</option>
+          <option value="de">德语</option>
+        </select>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <label>划词后自动显示气泡</label>
+          <div class="hint">关闭后，划词仅通过右键菜单「WinOCR 翻译」触发。</div>
+        </div>
+        <div class="toggle on" id="autoBubble"></div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <label>气泡常显示（不自动关闭）</label>
+          <div class="hint">开启后气泡一直显示，直到你点「关闭」或点击页面其它处；关闭后按下方秒数自动隐藏。</div>
+        </div>
+        <div class="toggle on" id="bubblePersist"></div>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>气泡自动关闭延迟（秒）</label>
+        <input type="number" id="bubbleTimeout" min="1" max="30" step="1" />
+        <div class="hint">仅当「气泡常显示」关闭时生效。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 翻译引擎设置 -->
+<div class="card">
+  <div class="card-header">
+    <span class="title"><span class="icon">⚙️</span> 翻译引擎</span>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="card-body">
+    <div class="card-content">
+      <div class="field">
+        <label>翻译引擎</label>
+        <select id="engine">
+          <option value="host">桌面端 WinOCR（默认，离线 Argos）</option>
+          <option value="sf">SiliconFlow（在线，需 API Key）</option>
+          <option value="mymemory">MyMemory（在线，免费免 Key）</option>
+          <option value="ollama">Ollama（本地模型）</option>
+          <option value="browser">浏览器内置（离线，需 Chrome/Edge 138+）</option>
+        </select>
+        <div class="hint">选择「桌面端 WinOCR」时，主程序未运行会自动回退到在线引擎；选择其他引擎时完全独立于桌面端。</div>
+      </div>
+
+      <!-- SiliconFlow 配置 -->
+      <div id="sfFields" style="display:none">
+        <div class="field">
+          <label>SiliconFlow API Key</label>
+          <input type="password" id="sfKey" placeholder="sk-..." autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>API 地址</label>
+          <input type="text" id="sfUrl" />
+        </div>
+        <div class="field">
+          <label>模型</label>
+          <select id="sfModel">
+            <option value="Qwen/Qwen3-8B">Qwen/Qwen3-8B（快，翻译推荐）</option>
+            <option value="deepseek-ai/DeepSeek-R1-0528-Qwen3-8B">DeepSeek-R1-0528-Qwen3-8B（推理，慢）</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- MyMemory 配置 -->
+      <div id="mmFields" style="display:none">
+        <div class="field">
+          <label>邮箱（可选，提升每日额度到约 50000 字符）</label>
+          <input type="email" id="mymemoryEmail" placeholder="you@example.com" />
+        </div>
+      </div>
+
+      <!-- Ollama 配置 -->
+      <div id="ollamaFields" style="display:none">
+        <div class="field">
+          <label>Ollama 地址</label>
+          <input type="text" id="ollamaUrl" />
+        </div>
+        <div class="field">
+          <label>模型</label>
+          <input type="text" id="ollamaModel" placeholder="qwen2.5:7b" />
+        </div>
+      </div>
+
+      <!-- 浏览器内置提示 -->
+      <div id="browserFields" style="display:none">
+        <div class="hint">使用浏览器内置 Translator API（离线翻译，零 Key）。需 Chrome/Edge 138+。首次使用时浏览器会自动下载语言包（availability=downloadable），完成后即可离线翻译。</div>
+      </div>
+
+      <div class="field" style="margin-top:12px">
+        <button class="btn btn-ghost" id="testEngine" type="button">测试翻译引擎</button>
+        <span id="engineTestResult" style="margin-left:8px;font-size:12px;color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 右键菜单设置 -->
+<div class="card">
+  <div class="card-header">
+    <span class="title"><span class="icon">🖱️</span> 右键菜单</span>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="card-body">
+    <div class="card-content">
+      <div class="toggle-row">
+        <div>
+          <label>启用「WinOCR 翻译」</label>
+          <div class="hint">选中文本后，右键菜单出现翻译入口。</div>
+        </div>
+        <div class="toggle on" id="ctxTranslate"></div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <label>启用「WinOCR 采集生词」</label>
+          <div class="hint">选中文本后，右键菜单出现采集入口。</div>
+        </div>
+        <div class="toggle on" id="ctxCollect"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 快捷键设置 -->
+<div class="card">
+  <div class="card-header">
+    <span class="title"><span class="icon">⌨️</span> 快捷键</span>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="card-body">
+    <div class="card-content">
+      <div class="field">
+        <label>截图翻译快捷键</label>
+        <input type="text" id="captureShortcut" placeholder="加载中…" readonly />
+        <button class="btn btn-mini" id="openShortcuts" type="button">修改</button>
+        <div class="hint">按此快捷键 → 自动截取当前可见区域 → 发送到桌面端 OCR+翻译。</div>
+      </div>
+      <div class="field">
+        <label>切换引擎快捷键</label>
+        <input type="text" id="translateShortcut" placeholder="加载中…" readonly />
+        <div class="hint">按此快捷键在翻译引擎间循环切换：桌面端→SiliconFlow→MyMemory→Ollama→浏览器内置，下次划词/OCR 翻译即用新引擎。</div>
+      </div>
+      <div class="hint shortcut-tip">点击「修改」打开浏览器快捷键设置页。快捷键由浏览器统一管理，扩展无法自定义捕获。</div>
+    </div>
+  </div>
+</div>
+
+<!-- 朗读设置 -->
+<div class="card">
+  <div class="card-header">
+    <span class="title"><span class="icon">🔊</span> 朗读（TTS）</span>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="card-body">
+    <div class="card-content">
+      <div class="field">
+        <label>系统语音</label>
+        <div id="voiceStatus" class="voice-status">
+          <span class="voice-dot"></span>
+          <span id="voiceText">检测中…</span>
+        </div>
+        <div id="voiceWarn" class="voice-warn" style="display:none">
+          ⚠️ 未检测到中文语音包。点击「中」按钮可能无声。
+          <a href="ms-settings:speech" target="_blank" class="voice-link">打开 Windows 语音设置安装中文语音包 →</a>
+        </div>
+        <div class="hint">使用浏览器 Web Speech API。点击下方按钮测试：
+          <button class="btn btn-mini" id="testEnVoice">🔊 测试英文</button>
+          <button class="btn btn-mini" id="testZhVoice">🔊 测试中文</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>语速</label>
+        <select id="ttsRate">
+          <option value="0.8">0.8x 慢速</option>
+          <option value="1.0">1.0x 正常</option>
+          <option value="1.2">1.2x 快速</option>
+          <option value="1.5">1.5x 极速</option>
+        </select>
+        <div class="hint">使用浏览器 Web Speech API，音色取决于系统。</div>
+      </div>
+      <div class="field">
+        <label>音调</label>
+        <select id="ttsPitch">
+          <option value="0.8">低沉</option>
+          <option value="1.0">正常</option>
+          <option value="1.2">高亢</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 关于 -->
+<div class="card">
+  <div class="card-header">
+    <span class="title"><span class="icon">ℹ️</span> 关于</span>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="card-body">
+    <div class="card-content">
+      <div class="about-row">
+        <span class="k">桌面端连接</span>
+        <span class="v"><span class="status-pill off" id="hostStatus"><span class="dot"></span><span id="hostStatusText">检测中…</span></span></span>
+      </div>
+      <div class="about-row">
+        <span class="k">Native Messaging Host</span>
+        <span class="v">com.winocr.native_host</span>
+      </div>
+      <div class="about-row">
+        <span class="k">数据去向</span>
+        <span class="v">%APPDATA%\WinOCR\winocr.db</span>
+      </div>
+      <div class="about-row">
+        <span class="k">版本</span>
+        <span class="v">0.1.0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部按钮 -->
+<div class="bottom-bar">
+  <button class="btn btn-primary" id="save">保存设置</button>
+  <button class="btn btn-ghost" id="reset">恢复默认</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="options.js"></script>
+</body>
+</html>

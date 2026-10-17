@@ -1,0 +1,87 @@
+{
+  "manifest_version": 3,
+  "name": "WinOCR-Html",
+  "version": "0.9.0",
+  "description": "选区翻译 + 截图 OCR + 日积累 MD 导出（工具栏弹窗版，兼容旧内核；翻译走 SiliconFlow）",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "unlimitedStorage",
+    "clipboardWrite",
+    "activeTab",
+    "tabs",
+    "scripting",
+    "notifications",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://api.siliconflow.cn/*",
+    "https://api.mymemory.translated.net/*",
+    "https://*.siliconflow.cn/*",
+    "https://cdnjs.cloudflare.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "action": {
+    "default_title": "WinOCR-Html（点击开面板）",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    },
+    "default_popup": "sidepanel.html"
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "js/common.js",
+        "js/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+W"
+      },
+      "description": "打开 WinOCR 面板"
+    },
+    "open-panel": {
+      "description": "打开 WinOCR 侧栏（可在 chrome://extensions/shortcuts 自行绑定，如 Alt+Shift+W）"
+    },
+    "translate-selection": {
+      "suggested_key": {
+        "default": "Alt+Shift+Z"
+      },
+      "description": "翻译当前选中"
+    },
+    "toggle-overlay": {
+      "suggested_key": {
+        "default": "Ctrl+O"
+      },
+      "description": "切换整页译文原位覆盖"
+    },
+    "start-review": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R"
+      },
+      "description": "打开复习面板"
+    },
+    "quick-add-word": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+A"
+      },
+      "description": "将当前选中词加入生词本"
+    }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArKCmrGzGR4bMNfwV5pSOu0FEaG7vY8ecf0RXTVCYHtONfnaxwjKVzBw/gdrWR8SVgSaeHBOdzcU8x69dsaADfPJt/z9vz0k4cWmX7EBhqqMuMwDRovD3QQDhIA9RYn/OlgQL40UvSYaq0TJbUFKNtEGaf0ZUJ9/HzSa/x+ssgsMx6BZ+anPWo3KbvjypBtp/dDem0XnBneOqWmwqDJ38EhXSO6BSqFcRf1fWepdk32vSk4FrjhsQYcxi+k3G0b2qp9kxD59ymyAGNLh0o2vfylcaJOSrSJxokc3F2e9aiBxjXjfX/0PRPTrTDmOuSgvDFsB4pCWZdkt43YHsyBeJvQIDAQAB"
+}

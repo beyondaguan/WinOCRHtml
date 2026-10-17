@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>WinOCR 划词助手</title>
+  <style>
+    :root {
+      --brand: #6366f0;
+      --brand-hover: #4f46e5;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --text-2: #475569;
+      --text-3: #94a3b8;
+      --ok: #10b981;
+      --err: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 320px;
+      font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 14px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .header .logo {
+      width: 24px; height: 24px; border-radius: 6px;
+      background: linear-gradient(135deg, #6366f0, #8b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 13px; font-weight: 700;
+    }
+    .header .title { font-weight: 600; }
+    .status {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 4px;
+      font-size: 11px; color: var(--text-3);
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+    .dot.on { background: var(--ok); }
+    .dot.off { background: var(--err); }
+    .section {
+      padding: 10px 14px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .section h3 {
+      font-size: 11px; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    textarea, input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text);
+      background: #fff;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus, input:focus { border-color: var(--brand); }
+    .row { display: flex; gap: 6px; margin-top: 8px; }
+    select {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 12px;
+      background: #fff;
+      color: var(--text);
+      flex: 1;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #f1f5f9;
+      color: var(--text-2);
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    button:hover { background: #e2e8f0; }
+    button.primary { background: var(--brand); color: #fff; }
+    button.primary:hover { background: var(--brand-hover); }
+    .result {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: #f1f5f9;
+      border-radius: 8px;
+      color: var(--text-2);
+      font-size: 12px;
+      min-height: 28px;
+      word-break: break-word;
+      display: none;
+    }
+    .result.show { display: block; }
+    .result .copy-btn {
+      float: right;
+      background: transparent;
+      color: var(--text-3);
+      padding: 0 4px;
+      font-size: 11px;
+    }
+    .footer {
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--text-3);
+      text-align: center;
+      background: var(--card);
+    }
+    .footer .open-options {
+      color: var(--brand);
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .footer .open-options:hover { text-decoration: underline; }
+    .hint { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+
+    /* ---- 采集结果：右上角词数徽章 + 词条列表 ---- */
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .section-head h3 { margin-bottom: 0; }
+    .word-badge {
+      font-size: 11px; color: var(--brand); background: #eef2ff;
+      border: 1px solid #c7d2fe; border-radius: 999px;
+      padding: 1px 8px; font-weight: 600; cursor: pointer;
+      display: none; user-select: none;
+    }
+    .word-badge.show { display: inline-block; }
+    .word-badge:hover { background: #e0e7ff; }
+    .word-badge.cached { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+    .word-badge.empty { color: var(--text-3); background: #f1f5f9; border-color: var(--border); cursor: default; }
+    .word-list {
+      display: none; margin-top: 8px; padding: 8px 10px;
+      background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;
+      max-height: 190px; overflow-y: auto;
+    }
+    .word-list.show { display: block; }
+    .word-chip {
+      display: inline-block; background: #eef2ff; color: #3730a3;
+      border-radius: 4px; padding: 1px 6px; font-size: 11px;
+      font-weight: 600; margin: 0 4px 4px 0;
+    }
+    .word-chip .lv { color: #818cf8; font-weight: 500; margin-left: 3px; }
+    .word-more { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">W</div>
+    <span class="title">WinOCR 划词助手</span>
+    <div class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">检测中…</span></div>
+  </div>
+
+  <div class="section">
+    <h3>快速翻译</h3>
+    <textarea id="srcText" rows="2" placeholder="输入或粘贴要翻译的文本…"></textarea>
+    <div class="row">
+      <select id="engine" title="翻译引擎（与设置页同步）">
+        <option value="host">桌面端 WinOCR</option>
+        <option value="sf">SiliconFlow</option>
+        <option value="mymemory">MyMemory</option>
+        <option value="ollama">Ollama</option>
+        <option value="browser">浏览器内置</option>
+      </select>
+    </div>
+    <div class="row">
+      <select id="srcLang">
+        <option value="auto">自动检测</option>
+        <option value="en">英语</option>
+        <option value="zh">中文</option>
+        <option value="ja">日语</option>
+        <option value="ko">韩语</option>
+        <option value="fr">法语</option>
+        <option value="de">德语</option>
+      </select>
+      <span style="align-self:center;color:var(--text-3)">→</span>
+      <select id="tgtLang">
+        <option value="zh">中文</option>
+        <option value="en">英语</option>
+        <option value="ja">日语</option>
+        <option value="ko">韩语</option>
+        <option value="fr">法语</option>
+        <option value="de">德语</option>
+      </select>
+      <button class="primary" id="translateBtn">翻译</button>
+    </div>
+    <div class="result" id="result">
+      <button class="copy-btn" id="copyResult">复制</button>
+      <span id="resultText"></span>
+      <div class="engine-line" id="engineLine" style="display:none;margin-top:6px;font-size:11px;color:var(--text-3);border-top:1px dashed var(--border);padding-top:6px">引擎：<span id="engineName"></span></div>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h3>采集到生词本</h3>
+      <span class="word-badge" id="wordBadge" title="点击展开/收起已采集的英文单词">0 词</span>
+    </div>
+    <div class="row">
+      <input id="collectWord" placeholder="生词（默认取翻译原文）" />
+      <button id="collectBtn">采集</button>
+    </div>
+    <div class="word-list" id="wordList"></div>
+    <div class="hint" id="collectHint"></div>
+  </div>
+
+  <div class="footer">
+    数据经 Native Messaging 回写桌面端 WinOCR · <a class="open-options" id="openWords" href="#">生词本</a> · <a class="open-options" id="openOptions" href="#">设置</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

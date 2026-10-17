@@ -1,0 +1,13 @@
+# 仅作用于本 crate（独立 workspace）。
+#
+# 1) crt-static：把本二进制统一为 /MT 静态 CRT，解决 ct2rs / CTranslate2 / sentencepiece
+#    内部 LNK2038（MT vs MD）冲突——这是 Argos 主引擎能在本机编过的硬性条件。
+#    该标志**不**影响主工程 winocr（它仍是默认 /MD）。
+#
+# 2) CMAKE_GENERATOR=Ninja：绕过 MSBuild 被安全策略当 LOLBin 崩溃的问题
+#    （CMake 探测 VCTargetsPath 时 MSBuild.exe Access violation）。
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[env]
+CMAKE_GENERATOR = "Ninja"

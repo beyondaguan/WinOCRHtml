@@ -1,0 +1,20 @@
+[workspace]
+members = ["app"]
+exclude = ["rust-reference"]
+resolver = "2"
+
+# 生产构建优化（workspace 级，全局生效）
+[profile.release]
+opt-level = 3
+
+# 开发构建也提速（2026-10-17 大图 OCR“锁死”修复）：
+# cargo run 默认 dev profile 全部未优化，逐像素图像循环比 release 慢 20-50 倍 ——
+# 实测小图预处理 3.5s（日志），大图可达分钟级；busy 期间再触发截图会在
+# PP_ENGINE 锁上排队，表现为“程序锁死”。
+[profile.dev]
+# 本 crate 代码 O1：OCR 热路径（CTC 解码 O(T×C)/NCHW/连通域 BFS）全是逐像素循环，
+# O0 下大图要慢 10-50 倍；O1 编译仍快，运行提速一个量级
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 2

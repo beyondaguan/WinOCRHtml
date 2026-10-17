@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WinOCR 主窗口 · 桌面（OCR 原文 / 翻译）</title>
+<style>
+  :root{
+    --brand-300:#4aa3ff; --brand-400:#2f9bff; --brand-500:#1f8bff; --brand-600:#1573e6;
+    --on-brand:#fff; --accent:#38e0d0;
+    --bg:#0b0d12; --bg-subtle:#0e1119;
+    --surface:#12151c; --surface-2:#171b24; --surface-3:#1e2330;
+    --border:#232a39; --border-strong:#38415c;
+    --text-1:#eef2f8; --text-2:#c2c9d8; --text-3:#8a93a8; --text-4:#59617a;
+    --success:#34d399; --warning:#fbbf24; --danger:#fb7185;
+    --grad:linear-gradient(135deg,#38bdf8,#6366f1);
+    --radius:14px;
+    --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(1200px 700px at 80% -20%, rgba(124,108,245,.16), transparent 60%),
+      radial-gradient(900px 600px at 8% 110%, rgba(61,90,254,.12), transparent 60%),
+      var(--bg);
+    color:var(--text-1);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Microsoft YaHei",sans-serif;
+    font-size:14px; line-height:1.5; padding:28px;
+  }
+  .win{
+    max-width:1120px; margin:0 auto; background:var(--surface);
+    border:1px solid var(--border-strong); border-radius:18px; overflow:hidden;
+    box-shadow:0 28px 72px rgba(0,0,0,.6);
+  }
+  /* 标题栏 */
+  .win-bar{ display:flex; align-items:center; gap:var(--sp-3); height:52px; padding:0 var(--sp-4);
+    background:linear-gradient(180deg,var(--surface-2),var(--surface)); border-bottom:1px solid var(--border); }
+  .win-logo{ width:26px;height:26px;border-radius:8px;background:var(--grad);display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px; }
+  .win-name{ font-weight:600; }
+  .win-ver{ font-size:11px; color:var(--text-3); }
+  .spacer{ flex:1; }
+  .win-ready{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--success); font-weight:600; }
+  .win-ready .dot{ width:7px;height:7px;border-radius:50%;background:var(--success); }
+  .win-ctrl{ width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--text-3);border:0;background:transparent;cursor:pointer; }
+  .win-ctrl:hover{ background:var(--surface-2); color:var(--text-1); }
+  .win-ctrl.close:hover{ background:rgba(251,113,133,.12); color:var(--danger); }
+  /* 工具栏 */
+  .win-tool{ display:flex; align-items:center; gap:var(--sp-2); padding:0 var(--sp-4); height:52px;
+    background:var(--surface-2); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .chip{ padding:6px 12px; border-radius:999px; background:var(--surface-3); border:1px solid var(--border); font-weight:600; font-size:13px; }
+  .chip.brand{ background:rgba(31,139,255,.12); color:var(--brand-500); border-color:rgba(31,139,255,.4); }
+  .arrow{ color:var(--brand-500); display:inline-grid; place-items:center; }
+  .btn{ display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px; border-radius:10px;
+    border:1px solid var(--border-strong); background:var(--surface-3); color:var(--text-1); font-size:13px; font-weight:600; cursor:pointer; }
+  .btn:hover{ border-color:var(--brand-400); color:var(--brand-600); background:rgba(31,139,255,.08); }
+  .btn.grad{ background:var(--grad); color:#fff; border:0; box-shadow:0 10px 32px rgba(31,139,255,.34); }
+  .btn.grad:hover{ filter:brightness(1.06); color:#fff; }
+  .btn.icon{ width:34px; padding:0; justify-content:center; }
+  .btn.sm{ height:30px; padding:0 10px; font-size:12px; }
+  svg{ display:block; }
+  .ic{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .btn.sm .ic{ width:15px; height:15px; }
+  /* 双栏 */
+  .win-panes{ display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--border); min-height:480px; }
+  .pane{ display:flex; flex-direction:column; background:var(--surface); min-width:0; }
+  .pane.out{ background:var(--bg-subtle); }
+  .pane-hd{ display:flex; align-items:center; gap:var(--sp-2); padding:var(--sp-3) var(--sp-4);
+    border-bottom:1px solid var(--border); background:var(--surface-2); }
+  .pane.out .pane-hd{ background:var(--surface); }
+  .pane-title{ display:inline-flex; align-items:center; gap:8px; font-weight:700; font-size:14px; }
+  .pane-title .ic{ color:var(--brand-500); }
+  .pane-bd{ flex:1; display:flex; min-height:0; }
+  textarea{ flex:1; width:100%; border:0; outline:0; resize:none; background:transparent; color:var(--text-1);
+    padding:var(--sp-4); font-size:15px; line-height:1.7;
+    font-family:"Cascadia Code",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  textarea::placeholder{ color:var(--text-4); }
+  .pane.out textarea{ background:linear-gradient(180deg, rgba(31,139,255,.05), transparent 40%); }
+  .pane-ft{ display:flex; align-items:center; gap:var(--sp-2); padding:8px var(--sp-4);
+    border-top:1px solid var(--border); background:var(--surface-2); font-size:12px; color:var(--text-3); }
+  .pane.out .pane-ft{ background:var(--surface); }
+  /* 状态栏 */
+  .win-status{ display:flex; align-items:center; gap:var(--sp-2); flex-wrap:wrap; padding:var(--sp-3) var(--sp-4);
+    background:var(--bg-subtle); border-top:1px solid var(--border); }
+  .pill{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:600;
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); }
+  .pill .dot{ width:7px;height:7px;border-radius:50%; }
+  .pill .dot.ok{ background:var(--success); } .pill.ok{ color:var(--success); border-color:rgba(52,211,153,.32); }
+  .pill .dot.warn{ background:var(--warning); } .pill.warn{ color:var(--warning); border-color:rgba(251,191,36,.32); }
+  .muted{ color:var(--text-3); }
+  select{ height:30px; padding:0 26px 0 10px; font-size:12px; border-radius:10px; border:1px solid var(--border-strong);
+    background:var(--surface-3) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a93a8' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>") no-repeat right 8px center; color:var(--text-1); cursor:pointer; appearance:none; }
+  @media (max-width:720px){ .win-panes{ grid-template-columns:1fr; } .pane-bd{ min-height:200px; } }
+
+  /* ===== 浅色主题（明暗切换） ===== */
+  body.theme-light{
+    --bg:#eef1f6; --bg-subtle:#e7ebf2;
+    --surface:#ffffff; --surface-2:#f4f6fa; --surface-3:#e9edf3;
+    --border:#d8dee8; --border-strong:#c2cad6;
+    --text-1:#1a2030; --text-2:#3a4456; --text-3:#69738a; --text-4:#9aa4b6;
+    --success:#0f9d6b; --warning:#b47e00; --danger:#d6455c;
+    background:
+      radial-gradient(1200px 700px at 80% -20%, rgba(124,108,245,.10), transparent 60%),
+      radial-gradient(900px 600px at 8% 110%, rgba(61,90,254,.08), transparent 60%),
+      var(--bg);
+  }
+  body.theme-light .win{ box-shadow:0 28px 72px rgba(20,30,60,.18); }
+  body.theme-light .pane.out textarea{ background:linear-gradient(180deg, rgba(31,139,255,.06), transparent 40%); }
+  body.theme-light .win-ctrl, body.theme-light .win-ready, body.theme-light .muted, body.theme-light .stage-sub{ color:var(--text-3); }
+
+  /* 视图切换（双栏 / 原图翻译） */
+  .seg{ display:inline-flex; padding:3px; border-radius:10px; background:var(--surface-3); gap:2px; }
+  .seg button{ height:28px; padding:0 12px; border:0; border-radius:8px; background:transparent; color:var(--text-2); font-size:12px; font-weight:600; cursor:pointer; }
+  .seg button.on{ background:var(--brand-500); color:#fff; }
+
+  /* 原图翻译视图 */
+  .origview{ display:none; padding:var(--sp-5); background:var(--bg-subtle); min-height:480px; }
+  .origview.show{ display:block; }
+  .shot{ position:relative; width:100%; max-width:780px; margin:0 auto; aspect-ratio:760/540;
+    border-radius:12px; overflow:hidden; box-shadow:0 18px 50px rgba(0,0,0,.5); background:#fff; }
+  .shotimg{ display:block; width:100%; height:100%; }
+  .ovl{ position:absolute; border:1.5px solid var(--brand-500); border-radius:8px;
+    background:rgba(31,139,255,.14); padding:5px 8px; color:#0b0d12; font-size:12px; line-height:1.3; backdrop-filter:blur(2px); }
+  .ovl b{ color:#125fbf; }
+  .hint{ text-align:center; color:var(--text-3); font-size:12px; margin-top:12px; }
+  .orig-ft{ display:flex; align-items:center; gap:var(--sp-2); justify-content:center; margin-top:14px; }
+
+  /* 截图缩略图 + 标注 */
+  .thumb{ width:46px; height:30px; border-radius:6px; overflow:hidden; border:1px solid var(--border-strong);
+    position:relative; flex:0 0 auto; background:#fff; cursor:pointer; }
+  .thumb svg{ width:100%; height:100%; display:block; }
+  .thumb .ann{ position:absolute; border:1.5px solid #fb7185; border-radius:2px; }
+</style>
+</head>
+<body>
+  <div class="win">
+    <!-- 标题栏 -->
+    <div class="win-bar">
+      <span class="win-logo">W</span>
+      <span class="win-name">WinOCR</span>
+      <span class="win-ver">v0.9.0</span>
+      <span class="spacer"></span>
+      <span class="win-ready"><span class="dot"></span> 已就绪</span>
+      <button class="win-ctrl" id="themeToggle" title="切换深/浅色">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      </button>
+      <button class="win-ctrl" title="最小化到托盘">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>
+      </button>
+      <button class="win-ctrl close" title="关闭到托盘">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <!-- 工具栏 -->
+    <div class="win-tool">
+      <span class="seg" id="viewSeg">
+        <button class="on" data-view="panes">双栏</button>
+        <button data-view="orig">原图翻译</button>
+      </span>
+      <span class="chip">自动检测</span>
+      <span class="arrow"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      <span class="chip brand">简体中文</span>
+      <span class="spacer"></span>
+      <button class="btn sm" title="粘贴翻译">
+        <svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15"/></svg>粘贴翻译
+      </button>
+      <button class="btn sm" title="历史记录">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>历史
+      </button>
+      <button class="btn sm" title="生词本">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3.5h11V21L12 17l-5.5 4V3.5z"/></svg>生词本
+      </button>
+      <button class="btn grad sm" title="截图翻译">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"/><path d="M4 12h16"/></svg>截图翻译
+      </button>
+    </div>
+
+    <!-- 双栏：左 OCR 原文 / 右 翻译 -->
+    <div class="win-panes" id="panes">
+
+      <!-- 左：OCR 原文区 -->
+      <section class="pane">
+        <div class="pane-hd">
+          <span class="thumb" title="源截图 + 标注">
+            <svg viewBox="0 0 46 30"><rect width="46" height="30" fill="#eef1f6"/><rect x="5" y="6" width="36" height="3" rx="1.5" fill="#c2cad6"/><rect x="5" y="13" width="28" height="3" rx="1.5" fill="#c2cad6"/><rect x="5" y="20" width="32" height="3" rx="1.5" fill="#c2cad6"/></svg>
+            <span class="ann" style="left:6px;top:11px;width:26px;height:7px"></span>
+          </span>
+          <span class="pane-title">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M6 3.5h8l5 5v12H6v-17z"/><path d="M13.5 3.5v5.5H19"/></svg> OCR 原文
+          </span>
+          <span class="spacer"></span>
+          <button class="btn icon sm" id="ocr-refresh" title="重新识别">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/></svg>
+          </button>
+          <button class="btn icon sm" data-copy="#ocr-src" title="复制原文">
+            <svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15"/></svg>
+          </button>
+        </div>
+        <div class="pane-bd">
+          <textarea id="ocr-src" spellcheck="false">System Preferences › Network › Advanced
+Configure TCP/IP, DNS and Wi‑Fi settings here.
+
+The quick brown fox jumps over the lazy dog.</textarea>
+        </div>
+        <div class="pane-ft"><span>原文 3 行 · 69 字符 · 可手动编辑修正</span></div>
+      </section>
+
+      <!-- 右：翻译区 -->
+      <section class="pane out">
+        <div class="pane-hd">
+          <span class="pane-title">
+            <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg> 翻译
+          </span>
+          <select title="目标语言">
+            <option>简体中文</option><option>English</option><option>日本語</option><option>한국어</option>
+          </select>
+          <span class="spacer"></span>
+          <button class="btn icon sm" title="朗读译文">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7 7 0 0 1 0 11"/></svg>
+          </button>
+          <button class="btn icon sm" data-copy="#ocr-out" title="复制译文">
+            <svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15"/></svg>
+          </button>
+        </div>
+        <div class="pane-bd">
+          <textarea id="ocr-out" readonly spellcheck="false">系统偏好设置 › 网络 › 高级
+在此配置 TCP/IP、DNS 与 Wi‑Fi 设置。
+
+那只敏捷的棕狐跳过了懒狗。</textarea>
+        </div>
+        <div class="pane-ft">
+          <span>译文 3 行 · 42 字</span>
+          <span class="spacer"></span>
+          <button class="btn sm" title="收藏生词">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3.5h11V21L12 17l-5.5 4V3.5z"/></svg>收藏生词
+          </button>
+          <button class="btn sm" title="互换语言">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M7 4L4 7l3 3"/><path d="M4 7h13a3 3 0 0 1 3 3M17 20l3-3-3-3"/><path d="M20 17H7a3 3 0 0 1-3-3"/></svg>互换
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- 原图翻译视图 -->
+    <div class="origview" id="origview">
+      <div class="shot">
+        <svg class="shotimg" viewBox="0 0 760 540" preserveAspectRatio="xMidYMid meet">
+          <rect width="760" height="540" fill="#f6f8fb"/>
+          <rect x="0" y="0" width="760" height="48" fill="#e9edf3"/>
+          <circle cx="24" cy="24" r="7" fill="#1f8bff"/>
+          <text x="44" y="29" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="16" font-weight="700" fill="#1a2030">Settings</text>
+          <text x="40" y="120" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="22" font-weight="700" fill="#1a2030">Language &amp; Region</text>
+          <rect x="40" y="150" width="680" height="64" rx="10" fill="#fff" stroke="#d8dee8"/>
+          <text x="60" y="178" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="16" fill="#3a4456">Preferred language</text>
+          <text x="60" y="200" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="14" fill="#69738a">English (United States)</text>
+          <rect x="40" y="230" width="680" height="64" rx="10" fill="#fff" stroke="#d8dee8"/>
+          <text x="60" y="258" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="16" fill="#3a4456">Add Language</text>
+          <text x="60" y="280" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="14" fill="#69738a">Install a language pack for menus and docs</text>
+          <rect x="40" y="310" width="680" height="64" rx="10" fill="#fff" stroke="#d8dee8"/>
+          <text x="60" y="338" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="16" fill="#3a4456">Display</text>
+          <text x="60" y="360" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="14" fill="#69738a">Resolution, scale and layout</text>
+          <rect x="40" y="410" width="680" height="56" rx="10" fill="#1f8bff"/>
+          <text x="60" y="443" font-family="Segoe UI,Microsoft YaHei,sans-serif" font-size="16" font-weight="700" fill="#fff">Apply &amp; Restart</text>
+        </svg>
+        <div class="ovl" style="left:5.3%;top:22%;width:36%;height:9%"><b>语言与地区</b></div>
+        <div class="ovl" style="left:5.3%;top:42.6%;width:30%;height:9%"><b>添加语言</b></div>
+        <div class="ovl" style="left:5.3%;top:57.4%;width:20%;height:9%"><b>显示</b></div>
+      </div>
+      <div class="hint">译文直接叠加在截图上（原图翻译）· 拖动可移动标注框</div>
+      <div class="orig-ft">
+        <button class="btn sm" title="复制译文" data-copy="#ocr-out">
+          <svg class="ic" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V5.5A1.5 1.5 0 0 1 6.5 4H15"/></svg>复制译文
+        </button>
+        <button class="btn sm" title="保存原图翻译">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>保存图片
+        </button>
+        <button class="btn sm" title="切换双栏视图">切换双栏</button>
+      </div>
+    </div>
+
+    <!-- 状态栏 -->
+    <div class="win-status">
+      <span class="pill ok"><span class="dot ok"></span> OCR 引擎</span>
+      <span class="pill ok"><span class="dot ok"></span> 翻译引擎</span>
+      <span class="pill warn"><span class="dot warn"></span> 网络代理</span>
+      <span class="pill ok"><span class="dot ok"></span> 结果缓存</span>
+      <span class="spacer"></span>
+      <span class="muted">本月额度 <b>62%</b></span>
+    </div>
+  </div>
+
+  <script>
+    // 明暗主题切换
+    var moonIcon = '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>';
+    var sunIcon  = '<circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8l1.8-1.8M18 6l1.8-1.8"/>';
+    document.getElementById('themeToggle').addEventListener('click', function(){
+      var light = document.body.classList.toggle('theme-light');
+      this.querySelector('svg').innerHTML = light ? sunIcon : moonIcon;
+      this.title = light ? '切换深/浅色（当前浅色）' : '切换深/浅色（当前深色）';
+    });
+
+    // 视图切换：双栏 / 原图翻译
+    var panes = document.getElementById('panes');
+    var orig  = document.getElementById('origview');
+    document.querySelectorAll('#viewSeg button').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelectorAll('#viewSeg button').forEach(function(x){ x.classList.remove('on'); });
+        b.classList.add('on');
+        var v = b.getAttribute('data-view');
+        panes.style.display = (v === 'panes') ? 'grid' : 'none';
+        orig.classList.toggle('show', v === 'orig');
+      });
+    });
+    // 原图翻译视图内的「切换双栏」
+    document.querySelectorAll('.orig-ft .btn').forEach(function(b){
+      if(b.textContent.indexOf('切换双栏') >= 0){
+        b.addEventListener('click', function(){
+          document.querySelector('#viewSeg button[data-view="panes"]').click();
+        });
+      }
+    });
+
+    // 复制按钮：复制目标文本域内容
+    document.querySelectorAll('[data-copy]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var node = document.querySelector(btn.getAttribute('data-copy'));
+        if(!node) return;
+        var text = node.value !== undefined ? node.value : node.textContent;
+        var done = function(){ btn.title = '已复制'; setTimeout(function(){ btn.title = btn.getAttribute('data-copy')==='#ocr-src'?'复制原文':'复制译文'; }, 1200); };
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(text).then(done).catch(function(){});
+        } else {
+          node.select(); try{ document.execCommand('copy'); }catch(e){} done();
+        }
+      });
+    });
+    document.getElementById('ocr-refresh').addEventListener('click', function(){
+      this.title = '已重新识别'; var self=this; setTimeout(function(){ self.title='重新识别'; }, 1200);
+    });
+  </script>
+</body>
+</html>

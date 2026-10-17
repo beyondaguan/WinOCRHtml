@@ -1,0 +1,26 @@
+# ---- 构建产物 ----
+target/
+argos-bridge/target*/
+/app/out/
+/winocr-host.exe
+
+# ---- 运维碎片（权限修复/锁清理痕迹）----
+argos-bridge/*.txt
+
+# ---- 运行时大资产（可重新下载，来源见 README「数据与许可」）----
+/assets/argos_packages/
+/assets/models/onnxruntime.dll
+/assets/onnxruntime.dll
+
+# ---- 历史扩展快照中的编译产物（0.8/0.3fb 源码保留）----
+/extension-0.8/native_host/
+/extension-0.3fb/native_host/
+
+# ---- AI 工作数据（会话记录/中间输出/下载缓存，2GB+）----
+/.workbuddy/
+
+# ---- 日志与临时文件 ----
+*.log
+nul
+acl_probe.txt
+takeown.txt

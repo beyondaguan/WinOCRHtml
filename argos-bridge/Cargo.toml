@@ -1,0 +1,22 @@
+[package]
+name = "argos-bridge"
+version = "0.1.0"
+edition = "2021"
+
+# 空 workspace 表：本 crate 自成一个独立 workspace，不被上层 WinOCR workspace 包含，
+# 因此上层 `cargo build -p winocr` 不会触碰它；CRT 策略（crt-static）只作用于本 crate。
+[workspace]
+
+[[bin]]
+name = "winocr-argos"
+path = "src/main.rs"
+
+[dependencies]
+# 离线翻译：CTranslate2 Rust 绑定（Argos 模型格式）
+# - default-features=false 避开 cuda/mkl 巨型依赖
+# - ruy：CPU 推理后端（静态、体积小）
+# - sentencepiece：用 ct2rs 自带分词器（官方用法），不再单独引 sentencepiece-rs
+ct2rs = { version = "0.10", default-features = false, features = ["ruy", "sentencepiece"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

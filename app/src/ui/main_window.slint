@@ -1,0 +1,1568 @@
+// ============================================================
+// WinOCR 主窗口 · Slint 声明式 UI v2.0
+// 架构：工作台为主 + 抽屉覆盖层 + 模态对话框
+// 导航轨 60px 4项（工作台/采集/历史/AI），工作台始终显示
+// 右侧 480px 抽屉（采集表格+搜索 / 历史表格+筛选 / AI对话）
+// 模态对话框（设置 640x480 / 导出 560x420）
+// 视觉令牌：docs/GUI设计文档.md §3.1（浅色 Indigo/Slate）
+// 布局铁律：
+//   1) 互斥视图用 if 条件元素
+//   2) 子元素一律显式宽高（防拉伸）
+//   3) 含 spacer/stretch 的布局禁用 alignment:center
+//   4) Text vertical-alignment 默认 top，需显式 center
+//   5) background/border 只有 Rectangle/Window 有
+//   6) 不能同时指定 height + min-height
+// ============================================================
+import { ScrollView, TextEdit, ComboBox, LineEdit } from "std-widgets.slint";
+import { SelectionBubble } from "bubble.slint";
+export { SelectionBubble }
+import { StudyWindow } from "study_window.slint";
+export { StudyWindow }  // 单词学习独立窗口（study_window.slint 手工维护）
+
+// ---- 左导航项（绝对定位，防布局拉伸） ----
+component RailItem {
+    in-out property <bool> active: false;
+    in-out property <string> icon: "";
+    in-out property <string> label: "";
+    in-out property <string> badge: "";  // 角标文本（"" = 不显示）
+    in-out property <color> accent: #0ea5e9;
+    in-out property <color> accent-2: #7dd3fc;
+    in-out property <color> text-3: #94a3b8;
+    callback clicked();
+
+    height: 48px;
+    TouchArea {
+        clicked => { root.clicked(); }
+        Rectangle {
+            height: 48px;
+            border-radius: 8px;
+            background: active ? accent-2 : transparent;
+            border-width: 1px;
+            border-color: active ? accent : transparent;
+            Text {
+                y: 6px; height: 20px; width: 100%;
+                text: icon;
+                color: active ? accent : text-3;
+                font-size: 1.231rem;
+                horizontal-alignment: center; vertical-alignment: center;
+            }
+            Text {
+                y: 27px; height: 14px; width: 100%;
+                text: label;
+                color: active ? accent : text-3;
+                font-size: 0.846rem;
+                horizontal-alignment: center; vertical-alignment: center;
+            }
+            if root.badge != "" : Rectangle {
+                x: 32px; y: 1px; height: 15px; min-width: 15px; border-radius: 8px;
+                background: #ef4444;
+                HorizontalLayout { padding-left: 4px; padding-right: 4px;
+                    Text { text: root.badge; color: #ffffff; font-size: 0.692rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+    }
+}
+
+// ---- 状态 pill ----
+component Pill {
+    in-out property <string> text: "";
+    in-out property <color> dot: #10b981;
+    in-out property <color> text-color: #64748b;
+    height: 16px;
+    HorizontalLayout {
+        spacing: 4px;
+        Rectangle { width: 7px; height: 7px; border-radius: 4px; background: root.dot; }
+        Text { text: root.text; color: text-color; font-size: 0.846rem; vertical-alignment: center; }
+    }
+}
+
+// ---- 对照栏（左右/上下两种布局共用，Phase 3.4）----
+// 参数化标题、动作条按钮与正文绑定，避免两套布局重复维护同一套 UI。
+// ⚠️ 组件与 MainWindow 平级，**访问不到 MainWindow 内的设计令牌**，
+//    故这里自带颜色属性（默认值 = 设计令牌），由 MainWindow 显式传入以支持主题切换。
+component Pane inherits Rectangle {
+    in-out property <string> pane-title: "";
+    in-out property <string> pane-text: "";
+    in-out property <bool> pane-readonly: false;
+    in-out property <bool> pane-skeleton: false;   // true 时正文区显示灰色占位块
+    in-out property <string> btn1-label: "";
+    in-out property <string> btn2-label: "";
+    in-out property <color> btn1-color: #475569;
+    in-out property <bool> show-clear: false;      // 标题栏是否带「清空」
+    // 颜色令牌（由 MainWindow 传入，见 Pane 的两处使用点）
+    in-out property <color> c-window: #ffffff;
+    in-out property <color> c-surface: #ffffff;
+    in-out property <color> c-surface-2: #f8fafc;
+    in-out property <color> c-border: #e2e8f0;
+    in-out property <color> c-text-2: #64748b;
+    in-out property <color> c-text-3: #94a3b8;
+    callback btn1();
+    callback btn2();
+    callback clear-pane();
+    background: root.c-window;
+    // ⚠️ inherits Rectangle 的尺寸约束要点（已用 tools/slint-check 最小复现验证）：
+    //    · 同时写 width:100% + height:100% 会报 Duplicated property binding（都算重复绑定）
+    //    · 只靠 horizontal/vertical-stretch:1 + min-* 即可正常填满父布局
+    //    · 绝不要在 inherits 组件里写 width/height，会与父级 stretch 打架导致塌成 0 宽
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    min-width: 200px;
+    min-height: 120px;
+    VerticalLayout { spacing: 0;
+        // 标题栏
+        Rectangle { height: 36px;
+            HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 8px;
+                Text { text: root.pane-title; color: root.c-text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+                if root.show-clear : TouchArea { height: 24px; clicked => { root.clear-pane(); }
+                    Rectangle { height: 24px; border-radius: 4px; background: root.c-surface;
+                        border-width: 1px; border-color: root.c-border;
+                        HorizontalLayout { padding-left: 8px; padding-right: 8px;
+                            Text { text: "清空"; color: root.c-text-3; font-size: 0.846rem; vertical-alignment: center; }
+                        }
+                    }
+                }
+            }
+        }
+        Rectangle { height: 1px; background: root.c-border; }
+        // 正文区：骨架用条件元素（自绘元素，不影响 stretch），
+        // TextEdit 恒在布局中靠 visible 切换（否则父级 stretch 失效 → 整栏塌 0 宽）
+        if root.pane-skeleton : VerticalLayout {
+            vertical-stretch: 1; padding: 16px; spacing: 12px;
+            Rectangle { height: 14px; border-radius: 4px; background: root.c-surface-2; }
+            Rectangle { height: 14px; border-radius: 4px; background: root.c-surface-2; }
+            Rectangle { width: 60%; height: 14px; border-radius: 4px; background: root.c-surface-2; }
+        }
+        // ⚠️ wrap: word-wrap 是必需项，不可删：
+        //   TextEdit 的 wrap 默认 no-wrap，且此时 min-width 不会被归零，
+        //   长文本会把 Pane 的 preferred-width 撑到极大 → 对照区整体超出窗口宽度，
+        //   表现为译文栏文字被右缘裁切、状态条右端 pill 消失。
+        pane-edit := TextEdit { text <=> root.pane-text; wrap: word-wrap; vertical-stretch: 1; horizontal-stretch: 1; read-only: root.pane-readonly; visible: root.pane-skeleton == false; }
+        Rectangle { height: 1px; background: root.c-border; }
+        // 动作条
+        Rectangle { height: 36px; background: root.c-surface-2;
+            HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 8px;
+                if root.btn1-label != "" : TouchArea { height: 26px; clicked => { root.btn1(); }
+                    Rectangle { height: 26px; border-radius: 6px; background: root.c-surface;
+                        border-width: 1px; border-color: root.c-border;
+                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                            Text { text: root.btn1-label; color: root.btn1-color; font-size: 0.923rem; vertical-alignment: center; }
+                        }
+                    }
+                }
+                if root.btn2-label != "" : TouchArea { height: 26px; clicked => { root.btn2(); }
+                    Rectangle { height: 26px; border-radius: 6px; background: root.c-surface;
+                        border-width: 1px; border-color: root.c-border;
+                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                            Text { text: root.btn2-label; color: root.c-text-2; font-size: 0.923rem; vertical-alignment: center; }
+                        }
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+        }
+    }
+}
+
+// ---- 主窗口 ----
+export component MainWindow inherits Window {
+    title: "WinOCR";
+    // ⚠️⚠️ 绝对不要在 .slint 里写 width/height/min-*/max-*！
+    // 原因（源码实证，i-slint-compiler-1.18.1/builtin_elements.rs:2088）：
+    //   Window.width 标注 `OnlyInSC`，文档原文「The application gives the window its size
+    //   when it creates the component, so this is a value the file reads, and **binding it is
+    //   an error**」。也就是说 .slint 里写 width: 1130px 会**覆盖应用给的真实尺寸**，
+    //   使内容宽度被永久钉死在 1130px —— 窗口拖到 1600px 宽，内容仍只占 1130px，
+    //   右侧留一大片空白（用户报的「不能全屏/放大」）。
+    // 正确做法：**不在 slint 写尺寸**，初始尺寸与最小尺寸都由 Rust 侧设置：
+    //   window.window().set_size(...) / winit 的 min_size。
+    background: bg;
+
+    // ===== 字体（全局，2026-10-06 用户需求：字体类型/大小可调）=====
+    // 本文件所有字号都用 rem 声明（13px = 1rem 基准）。Slint 的 rem 定义是
+    // 「logical px × Window.default-font-size」（见 i-slint-compiler/expression_tree.rs
+    // `Rem = "rem"`），故**改 default-font-size 即可整体缩放界面**，无需逐处改字号。
+    // ⚠️ default-font-size 本身必须写成由绝对 px 推导的表达式；若直接写 rem 会自引用
+    //    成 binding loop（root.default-font-size -> root.default-font-size）。
+    // 缩放基准（1rem 对应的绝对字号）与字体族（空串 = Slint 内置默认）
+    in-out property <length> ui-base-size: 13px;
+    in-out property <string> ui-font-family: "Microsoft YaHei UI";
+    // 全局缩放百分比：100=正常，125=放大 25%。Rust 侧只改这一个值。
+    in-out property <int> ui-scale-pct: 100;
+    default-font-family: ui-font-family;
+    default-font-size: ui-base-size * ui-scale-pct / 100;
+
+    // ===== 设计令牌 =====
+    in-out property <color> bg: #f8fafc;
+    in-out property <color> window: #ffffff;
+    in-out property <color> surface: #ffffff;
+    in-out property <color> surface-2: #f8fafc;
+    in-out property <color> border: #e2e8f0;
+    in-out property <color> text: #334155;
+    in-out property <color> text-2: #64748b;
+    in-out property <color> text-3: #94a3b8;
+    in-out property <color> accent: #0ea5e9;
+    in-out property <color> accent-2: #7dd3fc;
+    in-out property <brush> accent-grad: @linear-gradient(135deg, #0ea5e9 0%, #7dd3fc 100%);
+    in-out property <color> on-accent: #ffffff;
+    in-out property <color> green: #10b981;
+    in-out property <color> amber: #f59e0b;
+    in-out property <color> red: #ef4444;
+
+    // ===== 主题 =====
+    in-out property <string> current-theme: "C";
+    callback apply-theme(string);
+
+    // ===== 状态 =====
+    in-out property <string> status-text: "已就绪";
+    in-out property <string> ocr-src: "";
+    in-out property <string> ocr-out: "";
+    changed ocr-src => { root.recompute-candidates(); }
+    in-out property <string> ai-input-text: "";
+    in-out property <[string]> ai-messages: [];
+    in-out property <[string]> ai-msg-roles: [];
+    in-out property <string> ai-streaming: "";
+    in-out property <string> ai-copied-msg: "";
+    in-out property <int> lang-from-index: 0;
+    in-out property <int> lang-to-index: 1;
+
+    // ===== 设置 =====
+    in-out property <int> setting-engine-idx: 0;
+    in-out property <string> setting-sf-key: "";
+    in-out property <string> setting-ollama-url: "http://localhost:11434";
+    in-out property <string> setting-ollama-model: "";
+    in-out property <string> setting-save-status: "";
+    in-out property <int> setting-ai-backend-idx: 0;
+    in-out property <string> setting-ai-sf-key: "";
+    in-out property <string> setting-ai-sf-model: "Qwen/Qwen2.5-7B-Instruct";
+    in-out property <bool> setting-term-enabled: false;
+    in-out property <[string]> term-custom-lines: [];
+    in-out property <string> term-custom-src: "";
+    in-out property <string> term-custom-tgt: "";
+    in-out property <string> term-manage-status: "";
+    in-out property <bool> setting-selection-enabled: true;
+    in-out property <int> setting-bubble-font-idx: 1;
+    // —— 学习词典来源（2026-10-17 词典切换入口）——
+    in-out property <int> setting-dict-idx: 0;        // 0=英英(Wiktionary) 1=英汉(ECDICT)
+    in-out property <int> setting-stage-idx: 0;       // 学习组别下标（对应 stage-options）
+    in-out property <[string]> stage-options: ["全部单词", "小学词汇", "初中词汇", "高中词汇"];  // 运行时 Rust 填充（含自定义组）
+    in-out property <string> setting-theme-name: "C";
+    callback change-theme(string);
+    // —— 界面缩放 / 字体（2026-10-06）——
+    in-out property <[int]> ui-scale-options: [75, 100, 125, 150, 175, 200];
+    in-out property <int> setting-ui-scale-idx: 1;   // 默认 100%（下标 1）
+    callback apply-ui-scale(int);
+    in-out property <int> setting-ui-font-idx: 0;    // 0=默认 1=雅黑 2=宋体 3=黑体 4=楷体
+    callback apply-ui-font(int);
+    callback save-settings();
+    callback add-term();
+    callback remove-term(int);
+    callback test-connection();
+
+    // ===== 采集 =====
+    in-out property <[string]> collect-rows: [];
+    in-out property <[string]> collect-ids: [];
+    in-out property <[string]> collect-tags: ["全部"];
+    in-out property <string> collect-filter-tag: "全部";
+    in-out property <int> collect-filter-tag-idx: 0;
+    in-out property <string> collect-status: "";
+    in-out property <string> collect-add-src: "";
+    in-out property <string> collect-add-tgt: "";
+    in-out property <int> collect-total: 0;
+    in-out property <[string]> collect-candidates: [];
+    // 候选词按宽度预算分好的行（二维模型：行 → 词）。
+    // Slint 无自动换行容器也无 string.split，故分行在 Rust 侧完成。
+    in-out property <[[string]]> collect-candidate-rows: [];
+    in-out property <string> collect-candidate-overflow: "";
+    in-out property <[string]> ignore-words: [];
+    in-out property <string> ignore-input: "";
+    in-out property <string> ignore-status: "";
+    // ── 单词学习（已迁出抽屉 → 独立 StudyWindow 窗口，见 study_window.slint）──
+    in-out property <string> review-badge: "";  // Rail 角标文本（"" = 不显示）
+    callback open-study();  // 打开独立学习窗口（Rust 侧 show StudyWindow）
+    callback load-collect();
+    callback remove-collect(int);
+    callback add-collect();
+    callback refresh-collect-tags();
+    callback backfill-collect();      // 批量补全释义：对空 translation 跑 Argos 回填 + 未分级重标 CEFR
+    callback add-candidate(string);   // 单击候选词 → 预填表单
+    callback save-candidate(string);  // 双击候选词 → 直接入生词本（释义可空）
+    callback load-ignore();
+    callback add-ignore(string);
+    callback remove-ignore(string);
+    callback recompute-candidates();
+
+    // ===== 导出 =====
+    in-out property <string> export-status: "";
+    in-out property <[string]> export-projects: ["全部"];
+    in-out property <string> export-project: "全部";
+    in-out property <int> export-target: 0;
+    in-out property <int> export-format: 0;
+    callback export-file();
+    callback refresh-export-projects();
+
+    // ===== 生词学习卡片（四卡片工作台） =====
+    in-out property <string> word-card-word: "";
+    in-out property <string> word-card-phonetic: "";
+    in-out property <string> word-card-definition: "";
+    in-out property <string> word-card-translation: "";   // 中文释义（collect.translation，采集/回补后回填）
+    in-out property <string> word-card-example: "";
+    in-out property <string> word-card-example-zh: "";
+    in-out property <string> word-card-roots: "";
+    in-out property <string> word-card-etymology: "";
+    in-out property <string> word-card-level: "";
+    in-out property <string> word-card-project: "";
+    in-out property <string> word-card-context: "";
+    in-out property <int> word-card-mastery: 0;
+    in-out property <string> word-card-next-review: "";
+    in-out property <int> word-card-active-tab: 0;   // 0释义 1发音 2词根 3复习
+    callback open-word-card(int);
+    callback word-card-grade(int);
+    callback word-card-play-tts();
+    callback word-card-lookup-dict();
+    callback word-card-set-tab(int);
+
+    // ===== 历史 =====
+    in-out property <[string]> history-rows: [];
+    callback load-history();
+    callback clear-history();
+
+    // ===== 状态条 =====
+    in-out property <string> current-engine: "Argos";
+    in-out property <string> cache-info: "0/500";
+    in-out property <string> ai-status: "未知";
+    in-out property <bool> ai-status-ok: false;
+    in-out property <int> status-progress: 0;
+    in-out property <bool> busy: false;
+    in-out property <bool> ocr-loading: false;
+    // Phase 3.4：false=左右对照（默认），true=上下对照
+    in-out property <bool> split-vertical: false;
+    callback toggle-split();
+
+    // ===== 抽屉/模态 =====
+    in-out property <string> drawer-type: "";     // "collect" / "history" / "ai" / ""
+    in-out property <bool> drawer-visible: false;
+    in-out property <string> modal-type: "";      // "settings" / "export" / ""
+    in-out property <bool> modal-visible: false;
+    callback open-drawer(string);
+    callback close-drawer();
+    callback open-modal(string);
+    callback close-modal();
+
+    // ===== 其他回调 =====
+    callback capture();
+    callback swap-lang();
+    callback send-ai(text: string);
+    callback clear-ai();
+    callback copy-ai-message(string);
+    callback minimize();
+    callback request-close();
+    callback copy-out();
+    callback open-file();
+    callback open-url();
+    callback paste-clipboard();
+    callback re-ocr();
+    callback speak-out();
+    callback save-clipboard();
+    callback add-word-from-selection();
+    callback cancel-operation();
+    callback clear-content();
+
+    // ===== URL 弹窗 =====
+    in-out property <bool> url-dialog-visible: false;
+    in-out property <string> url-dialog-input: "";
+    callback url-dialog-submit(string);
+
+    // ===== 确认弹窗 =====
+    in-out property <bool> confirm-dialog-visible: false;
+    in-out property <string> confirm-dialog-message: "";
+    in-out property <string> confirm-dialog-target: "";
+    callback confirm-dialog-ok();
+
+    // ===== 外壳 =====
+    // ⚠️ 这里必须用 stretch-1，不能写 width:100% + height:100%。
+    // 根因（实测 2026-10-06）：外壳是 Window 的直接子元素，Window 的 width/height
+    // 在 slint 里是**固定绑定**，于是 width:100% 把内容宽度永久钉死在 1130px ——
+    // 窗口拖到 1600px 宽，内容仍只占 1130px，右侧一大片空白（=用户说的"不能放大"）。
+    Rectangle {
+        horizontal-stretch: 1;
+        vertical-stretch: 1;
+        background: window;
+        border-radius: 12px;
+        border-width: 1px;
+        border-color: border;
+        clip: true;
+
+        VerticalLayout {
+            spacing: 0;
+            padding: 0;
+
+            // ============ 顶栏 50px ============
+            Rectangle {
+                width: 100%;
+                height: 50px;
+                background: surface-2;
+                HorizontalLayout {
+                    width: 100%;
+                    height: 50px;
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 8px;
+                    // —— 左组：捕获工具 ——
+                    TouchArea { height: 30px; clicked => { root.capture(); }
+                        Rectangle { height: 30px; border-radius: 8px; background: surface;
+                            border-width: 1px; border-color: border;
+                            HorizontalLayout { padding-left: 14px; padding-right: 14px;
+                                Text { text: "蒙图翻译"; color: text; font-size: 0.923rem; font-weight: 600; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                    TouchArea { height: 30px; clicked => { root.open-file(); }
+                        Rectangle { height: 30px; border-radius: 8px; background: surface;
+                            border-width: 1px; border-color: border;
+                            HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                Text { text: "文件"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                    TouchArea { height: 30px; clicked => { root.open-url(); }
+                        Rectangle { height: 30px; border-radius: 8px; background: surface;
+                            border-width: 1px; border-color: border;
+                            HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                Text { text: "在线图片"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                    Rectangle { width: 1px; height: 22px; background: border; }
+                    // —— 中组：语言对 ——
+                    ComboBox { height: 28px; model: ["自动检测", "English", "日本語", "한국어"]; current-index <=> root.lang-from-index; }
+                    TouchArea { width: 26px; height: 26px; clicked => { root.swap-lang(); }
+                        Rectangle { width: 26px; height: 26px; border-radius: 6px;
+                            Text { text: "⇄"; color: accent; font-size: 1.077rem;
+                                   horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                    ComboBox { height: 28px; model: ["简体中文", "English", "日本語", "한국어"]; current-index <=> root.lang-to-index; }
+                    Rectangle { horizontal-stretch: 1; }
+                    // —— 右组 ——
+                    TouchArea { width: 30px; height: 30px; clicked => { root.open-modal("settings"); }
+                        Rectangle { width: 30px; height: 30px; border-radius: 6px;
+                            Text { text: "⚙"; color: text-2; font-size: 1.077rem;
+                                   horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                    TouchArea { width: 30px; height: 30px; clicked => { root.minimize(); }
+                        Text { text: "—"; color: text-2; font-size: 1.077rem;
+                               horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    TouchArea { width: 30px; height: 30px; clicked => { root.request-close(); }
+                        Text { text: "✕"; color: text-2; font-size: 1rem;
+                               horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+                Rectangle { x: 0; y: 49px; width: 100%; height: 1px; background: border; }
+            }
+
+            // ============ 工作区 ============
+            HorizontalLayout {
+                spacing: 0;
+                // ---- 左导航轨 60px 4项 ----
+                Rectangle {
+                    width: 60px;
+                    background: surface-2;
+                    VerticalLayout {
+                        padding: 6px; spacing: 4px; alignment: start;
+                        RailItem { icon: "▣"; label: "工作台"; active: root.drawer-type == ""; accent: accent; accent-2: accent-2; text-3: text-3; clicked => { root.close-drawer(); } }
+                        RailItem { icon: "📌"; label: "采集"; active: root.drawer-type == "collect"; accent: accent; accent-2: accent-2; text-3: text-3;
+                            clicked => { if (root.drawer-type == "collect") { root.close-drawer(); } else { root.open-drawer("collect"); } }
+                        }
+                        RailItem { icon: "↻"; label: "历史"; active: root.drawer-type == "history"; accent: accent; accent-2: accent-2; text-3: text-3;
+                            clicked => { if (root.drawer-type == "history") { root.close-drawer(); } else { root.open-drawer("history"); } }
+                        }
+                        RailItem { icon: "🎓"; label: "学习"; badge: root.review-badge; active: root.drawer-type == "review"; accent: accent; accent-2: accent-2; text-3: text-3;
+                            clicked => { root.open-study(); }
+                        }
+                        RailItem { icon: "✦"; label: "AI"; active: root.drawer-type == "ai"; accent: accent; accent-2: accent-2; text-3: text-3;
+                            clicked => { if (root.drawer-type == "ai") { root.close-drawer(); } else { root.open-drawer("ai"); } }
+                        }
+                        Rectangle { width: 24px; height: 1px; background: border; }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                    Rectangle { x: 59px; y: 0; width: 1px; height: 100%; background: border; }
+                }
+
+                // ---- 中央舞台：工作台始终显示 ----
+                Rectangle {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                    background: window;
+                    clip: true;
+                    VerticalLayout {
+                        width: 100%;
+                        spacing: 0;
+
+     // ── 候选词面板（截图后自动出现）──
+     if root.collect-candidates.length > 0 : Rectangle {
+         width: 100%;
+         min-height: 56px;
+         max-height: 132px;   // 最多约 4 行，超出则滚动
+         background: surface-2;
+         border-width: 1px; border-color: border;
+         // 关键：clip 保证内部换行/滚动不外溢到父容器
+         clip: true;
+         VerticalLayout { padding: 8px; spacing: 6px;
+             HorizontalLayout { height: 14px; spacing: 8px;
+                 Rectangle { width: 3px; height: 14px; border-radius: 2px; background: accent; }
+                 Text { text: "候选采集词"; color: text; font-size: 1rem; font-weight: 700; vertical-alignment: center; }
+                 Rectangle { horizontal-stretch: 1; }
+                 Text { text: root.collect-candidate-overflow; color: text-3; font-size: 0.846rem; vertical-alignment: center; }
+             }
+             // 纵向滚动：候选词多时可滚，且不把对照区挤出
+             ScrollView {
+                 vertical-stretch: 1;
+                 VerticalLayout { width: 100%; spacing: 6px;
+                     for row[rowidx] in root.collect-candidate-rows : HorizontalLayout {
+                         width: 100%;
+                         height: 26px;
+                         spacing: 6px;
+                         for c in row : TouchArea {
+                             height: 26px;
+                             horizontal-stretch: 0;   // 关键：不按 stretch 撑开
+                             // 单击=预填表单（可补释义）；双击=直接入生词本
+                             // 注意：Slint 的 clicked 会先于 double-clicked 触发，
+                             // 故双击时会先预填再入本，属预期（入本后表单被清空）。
+                             clicked => { root.add-candidate(c); }
+                             double-clicked => { root.save-candidate(c); }
+                             Rectangle { height: 26px; border-radius: 6px; background: surface;
+                                 border-width: 1px; border-color: border;
+                                 HorizontalLayout { padding-left: 10px; padding-right: 10px;
+                                     Text { text: c; color: accent; font-size: 0.923rem; font-weight: 600; vertical-alignment: center; }
+                                 }
+                             }
+                         }
+                         Rectangle { horizontal-stretch: 1; }   // 尾部吸收余量
+                     }
+                 }
+             }
+         }
+         Rectangle { x: 0; y: 0; width: 100%; height: 1px; background: border; }
+     }
+
+                        // ── OCR 骨架占位（识别中）──
+                        if root.ocr-loading == true && root.ocr-src == "" : VerticalLayout {
+                            vertical-stretch: 1; padding: 16px; spacing: 12px;
+                            Rectangle { height: 16px; border-radius: 4px; background: surface-2; }
+                            Rectangle { height: 16px; border-radius: 4px; background: surface-2; }
+                            Rectangle { width: 70%; height: 16px; border-radius: 4px; background: surface-2; }
+                            Rectangle { height: 12px; border-radius: 4px; background: surface-2; }
+                            Rectangle { height: 12px; width: 85%; border-radius: 4px; background: surface-2; }
+                        }
+
+                        // ── 空状态引导 ──
+                        if root.ocr-src == "" && root.ocr-loading == false : VerticalLayout {
+                            vertical-stretch: 1; padding: 16px; spacing: 0;
+                            Rectangle { vertical-stretch: 1; }
+                            HorizontalLayout { height: 160px;
+                                Rectangle { horizontal-stretch: 1; }
+                                Rectangle { width: 440px; height: 160px; border-radius: 16px; background: surface-2;
+                                    border-width: 1px; border-color: border;
+                                    VerticalLayout { padding: 20px; spacing: 14px;
+                                        Text { text: "还没有内容"; color: text; font-size: 1.154rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                                        HorizontalLayout { spacing: 12px;
+                                            TouchArea { height: 34px; clicked => { root.capture(); }
+                                                Rectangle { height: 34px; border-radius: 10px; background: accent-grad;
+                                                    HorizontalLayout { padding-left: 14px; padding-right: 14px;
+                                                        Text { text: "📷 Alt+Q 截图翻译"; color: on-accent; font-size: 0.923rem; font-weight: 600; vertical-alignment: center; }
+                                                    }
+                                                }
+                                            }
+                                            TouchArea { height: 34px; clicked => { root.open-file(); }
+                                                Rectangle { height: 34px; border-radius: 10px; background: surface;
+                                                    border-width: 1px; border-color: border;
+                                                    HorizontalLayout { padding-left: 14px; padding-right: 14px;
+                                                        Text { text: "📄 拖入文件"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                                                    }
+                                                }
+                                            }
+                                            TouchArea { height: 34px; clicked => { root.paste-clipboard(); }
+                                                Rectangle { height: 34px; border-radius: 10px; background: surface;
+                                                    border-width: 1px; border-color: border;
+                                                    HorizontalLayout { padding-left: 14px; padding-right: 14px;
+                                                        Text { text: "📋 粘贴"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                            Rectangle { vertical-stretch: 1; }
+                        }
+
+                        // ── 双栏视图 ──
+                        if root.ocr-src != "" : VerticalLayout {
+                            vertical-stretch: 1;
+                            spacing: 0;
+                            padding: 12px;
+                            // 快捷入口
+                            HorizontalLayout { spacing: 8px; height: 28px;
+                                Text { text: "操作:"; color: text-2; font-size: 0.846rem; vertical-alignment: center; }
+                                TouchArea { height: 26px; clicked => { root.open-drawer("collect"); }
+                                    Rectangle { height: 26px; border-radius: 6px; background: surface;
+                                        border-width: 1px; border-color: border;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text { text: "查看队列 →"; color: accent; font-size: 0.923rem; font-weight: 600; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                                TouchArea { height: 26px; clicked => { root.open-drawer("ai"); }
+                                    Rectangle { height: 26px; border-radius: 6px; background: surface;
+                                        border-width: 1px; border-color: border;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text { text: "问 AI"; color: accent; font-size: 0.923rem; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                                // Phase 3.4：左右/上下对照切换
+                                TouchArea { height: 26px; clicked => { root.toggle-split(); }
+                                    Rectangle { height: 26px; border-radius: 6px; background: surface;
+                                        border-width: 1px; border-color: border;
+                                        HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 5px;
+                                            Text { text: root.split-vertical ? "⇅ 上下" : "⇄ 左右"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                            Rectangle { height: 8px; }
+                            // ── 对照区：左右 / 上下两种布局（Phase 3.4）──
+                            // 两种布局复用同一个 Pane 组件，仅排列方向不同；
+                            // split-vertical 由 Rust 侧 toggle-split 回调切换并持久化到 config。
+                            if root.split-vertical == false : HorizontalLayout {
+                                vertical-stretch: 1;
+                                spacing: 0;
+                                Pane {
+                                    pane-title: "OCR 原文";
+                                    c-window: root.window;
+                                    c-surface: root.surface;
+                                    c-surface-2: root.surface-2;
+                                    c-border: root.border;
+                                    c-text-2: root.text-2;
+                                    c-text-3: root.text-3;
+                                    pane-text <=> root.ocr-src;
+                                    show-clear: true;
+                                    btn1-label: "重新识别"; btn2-label: "复制";
+                                    clear-pane => { root.clear-content(); }
+                                    btn1 => { root.re-ocr(); }
+                                    btn2 => { root.copy-out(); }
+                                }
+                                Rectangle { width: 1px; background: border; }
+                                Pane {
+                                    pane-title: "翻译";
+                                    c-window: root.window;
+                                    c-surface: root.surface;
+                                    c-surface-2: root.surface-2;
+                                    c-border: root.border;
+                                    c-text-2: root.text-2;
+                                    c-text-3: root.text-3;
+                                    pane-text <=> root.ocr-out;
+                                    pane-readonly: true;
+                                    pane-skeleton: root.busy;
+                                    btn1-label: "🔊 朗读"; btn2-label: "复制";
+                                    btn1-color: accent;
+                                    btn1 => { root.speak-out(); }
+                                    btn2 => { root.copy-out(); }
+                                }
+                            }
+                            if root.split-vertical == true : VerticalLayout {
+                                vertical-stretch: 1;
+                                spacing: 0;
+                                Pane {
+                                    pane-title: "OCR 原文";
+                                    c-window: root.window;
+                                    c-surface: root.surface;
+                                    c-surface-2: root.surface-2;
+                                    c-border: root.border;
+                                    c-text-2: root.text-2;
+                                    c-text-3: root.text-3;
+                                    pane-text <=> root.ocr-src;
+                                    show-clear: true;
+                                    btn1-label: "重新识别"; btn2-label: "复制";
+                                    clear-pane => { root.clear-content(); }
+                                    btn1 => { root.re-ocr(); }
+                                    btn2 => { root.copy-out(); }
+                                }
+                                Rectangle { height: 1px; background: border; }
+                                Pane {
+                                    pane-title: "翻译";
+                                    c-window: root.window;
+                                    c-surface: root.surface;
+                                    c-surface-2: root.surface-2;
+                                    c-border: root.border;
+                                    c-text-2: root.text-2;
+                                    c-text-3: root.text-3;
+                                    pane-text <=> root.ocr-out;
+                                    pane-readonly: true;
+                                    pane-skeleton: root.busy;
+                                    btn1-label: "🔊 朗读"; btn2-label: "复制";
+                                    btn1-color: accent;
+                                    btn1 => { root.speak-out(); }
+                                    btn2 => { root.copy-out(); }
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
+
+            // ============ 状态条 32px ============
+            Rectangle {
+                width: 100%;
+                height: 32px;
+                background: surface-2;
+                HorizontalLayout { padding-left: 14px; padding-right: 14px; spacing: 10px;
+                    Pill { text: status-text; dot: green; }
+                    Rectangle { width: 1px; height: 14px; background: border; }
+                    Pill { text: "OCR 就绪"; dot: green; }
+                    Pill { text: "翻译 " + root.current-engine; dot: green; }
+                    Pill { text: "缓存 " + root.cache-info; dot: amber; }
+                    Rectangle { horizontal-stretch: 1; }
+                    // Phase 3.3 骨架屏：busy 时显示处理中指示
+                    if root.busy : Pill { text: "处理中…"; dot: amber; }
+                    if root.status-progress > 0 : HorizontalLayout { spacing: 6px;
+                        Rectangle { width: 80px; height: 6px; border-radius: 3px; background: border;
+                            Rectangle { width: (root.status-progress * 80 / 100) * 1px; height: 6px; border-radius: 3px; background: accent; }
+                        }
+                        Text { text: root.status-progress + "%"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                        TouchArea { width: 20px; height: 20px; clicked => { root.cancel-operation(); }
+                            Text { text: "✕"; color: text-3; font-size: 0.923rem;
+                                   horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                }
+                Rectangle { x: 0; y: 0; width: 100%; height: 1px; background: border; }
+            }
+
+        }
+    }
+
+    // ---- 抽屉遮罩 ----
+    // 抽屉是覆盖层：先铺一层遮罩把工作台压暗，否则工作台的原文/译文栏
+    // 会从抽屉左侧露出来，与采集表格同屏并排 → 看起来像"两个页面混在一起"。
+    //
+    // ⚠️ 关键修复（用户报「抽屉极易被回收」）：遮罩**不能铺满全屏**。
+    // 原因：Slint 中只有 TouchArea 会捕获指针事件，普通 Rectangle 会「穿透」。
+    // 若遮罩铺满全屏，抽屉内部那些没有 TouchArea 的区域（表格背景、标题栏、
+    // 空列表区……）点击会穿透抽屉、命中遮罩的 TouchArea → 抽屉被误关。
+    // 故遮罩宽度只取「抽屉左侧」那段，点它才关闭（符合「点外部关闭」的预期），
+    // 抽屉内部的误触则由抽屉自己最底层的吞点击 TouchArea 兜住（见抽屉覆盖层）。
+    if root.drawer-visible : Rectangle {
+        x: 0; y: 0;
+        width: root.width - min(480px * root.ui-scale-pct / 100, root.width * 0.6);
+        height: 100%;
+        // 遮罩色：#RRGGBBAA 的 alpha 在**后**两位（20% 黑 = #00000033）。
+        background: #00000033;
+        TouchArea { clicked => { root.close-drawer(); }
+            Rectangle { x: 0; y: 0; width: 100%; height: 100%; background: transparent; }
+        }
+    }
+
+    // ---- 抽屉覆盖层 ----
+    if root.drawer-visible : Rectangle {
+        // 抽屉宽度随缩放等比放大；再对窗口宽度封顶，避免小窗口时抽屉盖满全屏
+        x: root.width - min(480px * root.ui-scale-pct / 100, root.width * 0.6);
+        y: 0;
+        width: min(480px * root.ui-scale-pct / 100, root.width * 0.6);
+        height: 100%;
+        background: surface;
+        border-width: 1px;
+        border-color: border;
+        clip: true;
+
+        // ⚠️ 吞点击底层（用户报「抽屉极易被回收」的另一半原因）：
+        // Slint 只有 TouchArea 捕获指针事件，普通 Rectangle 会穿透。若抽屉内没有这层，
+        // 点表格背景/标题栏/空列表区会穿透到**工作台**（如误触截图按钮）。
+        // 空 clicked 即「吃掉事件、不做任何事」。
+        TouchArea {
+            Rectangle { x: 0; y: 0; width: 100%; height: 100%; background: transparent; }
+        }
+
+        VerticalLayout {
+            vertical-stretch: 1;
+            spacing: 0;
+            padding: 0;
+            // 抽屉头部
+            Rectangle {
+                width: 100%;
+                height: 48px;
+                background: surface-2;
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 12px;
+                    spacing: 12px;
+                    height: 48px;
+                    Text {
+                        text: root.drawer-type == "collect" ? "采集队列" : (root.drawer-type == "history" ? "历史记录" : "AI 对话");
+                        color: text; font-size: 1.231rem; font-weight: 700; vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    TouchArea { width: 32px; height: 32px; clicked => { root.close-drawer(); }
+                        Rectangle { width: 32px; height: 32px; border-radius: 6px; background: surface;
+                            border-width: 1px; border-color: border;
+                            Text { text: "✕"; color: text-3; font-size: 1rem;
+                                   horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                }
+                Rectangle { x: 0; y: 47px; width: 100%; height: 1px; background: border; }
+            }
+
+            // ── 采集抽屉 ──
+            if root.drawer-type == "collect" : VerticalLayout {
+                vertical-stretch: 1;
+                spacing: 0;
+                // 搜索栏
+                Rectangle { height: 44px;
+                    HorizontalLayout { padding: 12px; spacing: 8px;
+                        TextEdit { text <=> root.collect-add-src; min-height: 36px; max-height: 36px; placeholder-text: "搜索已采集..."; horizontal-stretch: 1; }
+                        TouchArea { height: 32px; clicked => { root.backfill-collect(); }
+                            Rectangle { height: 32px; border-radius: 8px; background: accent-grad;
+                                HorizontalLayout { padding-left: 14px; padding-right: 14px;
+                                    Text { text: "补全释义"; color: on-accent; font-size: 0.923rem; font-weight: 600; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                        TouchArea { height: 32px; clicked => { root.refresh-collect-tags(); root.load-collect(); }
+                            Rectangle { height: 32px; border-radius: 8px; background: surface;
+                                border-width: 1px; border-color: border;
+                                HorizontalLayout { padding-left: 14px; padding-right: 14px;
+                                    Text { text: "刷新"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                    }
+                    Rectangle { x: 0; y: 43px; width: 100%; height: 1px; background: border; }
+                }
+                // 标签筛选
+                HorizontalLayout { height: 32px; padding-left: 12px; spacing: 6px;
+                    Text { text: "标签:"; color: text-2; font-size: 0.846rem; vertical-alignment: center; }
+                    for tag[idx] in root.collect-tags : TouchArea { height: 24px; clicked => { root.collect-filter-tag = tag; root.load-collect(); }
+                        Rectangle { height: 24px; border-radius: 6px; background: root.collect-filter-tag == tag ? accent : surface;
+                            border-width: 1px; border-color: root.collect-filter-tag == tag ? accent : border;
+                            HorizontalLayout { padding-left: 8px; padding-right: 8px;
+                                Text { text: tag; color: root.collect-filter-tag == tag ? on-accent : text-2; font-size: 0.846rem; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                }
+                Rectangle { height: 8px; }
+                // 总数
+                HorizontalLayout { height: 24px; padding-left: 12px; spacing: 6px;
+                    Text { text: "总计:"; color: text-2; font-size: 0.846rem; vertical-alignment: center; }
+                    Text { text: root.collect-total; color: accent; font-size: 1rem; font-weight: 700; vertical-alignment: center; }
+                }
+                // 表格
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout { spacing: 4px; padding: 8px;
+                        for line[idx] in root.collect-rows : Rectangle {
+                            min-height: 44px; horizontal-stretch: 1; border-radius: 6px; background: surface;
+                            border-width: 1px; border-color: border;
+                            // 整行点击 → 打开四卡片学习工作台
+                            TouchArea { clicked => { root.open-word-card(idx); }
+                                Rectangle { width: 100%; height: 100%; background: transparent; }
+                            }
+                            HorizontalLayout { padding-left: 12px; padding-right: 12px; padding-top: 8px; padding-bottom: 8px; spacing: 8px;
+                                Text { text: line; color: text; font-size: 0.923rem; wrap: word-wrap; horizontal-stretch: 1; vertical-alignment: center; }
+                                TouchArea { width: 28px; height: 28px; clicked => { root.remove-collect(idx); }
+                                    Rectangle { width: 28px; height: 28px; border-radius: 6px; background: surface-2;
+                                        Text { text: "✕"; color: text-3; font-size: 0.923rem; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                            }
+                        }
+                        if root.collect-rows.length == 0 : Text { text: "暂无采集数据"; color: text-3; font-size: 0.923rem; vertical-alignment: center; }
+                    }
+                }
+                // 底部添加表单
+                // 底部表单高度随缩放等比放大（150% 时 36px 输入框需要更多空间）
+                Rectangle { min-height: 96px * root.ui-scale-pct / 100; max-height: 96px * root.ui-scale-pct / 100; background: surface-2;
+                    VerticalLayout { spacing: 0;
+                        Rectangle { height: 1px; background: border; }
+                        VerticalLayout { padding: 10px; spacing: 8px;
+                            HorizontalLayout { spacing: 8px;
+                                TextEdit { text <=> root.collect-add-src; min-height: 36px; max-height: 36px; placeholder-text: "原文"; horizontal-stretch: 1; }
+                                TextEdit { text <=> root.collect-add-tgt; min-height: 36px; max-height: 36px; placeholder-text: "释义"; horizontal-stretch: 1; }
+                            }
+                            HorizontalLayout { spacing: 8px;
+                                TouchArea { width: 72px; height: 28px; clicked => { root.add-collect(); }
+                                    Rectangle { width: 72px; height: 28px; border-radius: 6px; background: accent-grad;
+                                        Text { text: "添加"; color: on-accent; font-size: 0.923rem; font-weight: 600;
+                                               horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                                Text { text: root.collect-status; color: text-3; font-size: 0.846rem; horizontal-stretch: 1; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── 历史抽屉 ──
+            if root.drawer-type == "history" : VerticalLayout {
+                vertical-stretch: 1;
+                spacing: 0;
+                // 工具栏
+                Rectangle { height: 44px;
+                    HorizontalLayout { padding: 12px; spacing: 8px;
+                        TouchArea { height: 32px; clicked => { root.load-history(); }
+                            Rectangle { height: 32px; border-radius: 8px; background: surface;
+                                border-width: 1px; border-color: border;
+                                HorizontalLayout { padding-left: 14px; padding-right: 14px;
+                                    Text { text: "刷新"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                        TouchArea { height: 32px; clicked => { root.confirm-dialog-message = "确定清空所有历史记录？"; root.confirm-dialog-target = "clear-history"; root.confirm-dialog-visible = true; }
+                            Rectangle { height: 32px; border-radius: 8px; background: surface;
+                                border-width: 1px; border-color: border;
+                                HorizontalLayout { padding-left: 14px; padding-right: 14px;
+                                    Text { text: "清空"; color: red; font-size: 0.923rem; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    Rectangle { x: 0; y: 43px; width: 100%; height: 1px; background: border; }
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout { spacing: 8px; padding: 12px;
+                        for line in root.history-rows : Rectangle {
+                            horizontal-stretch: 1; border-radius: 8px; background: surface;
+                            border-width: 1px; border-color: border;
+                            VerticalLayout { padding: 10px; spacing: 4px;
+                                Text { text: line; color: text-2; font-size: 0.923rem; wrap: word-wrap; }
+                            }
+                        }
+                        if root.history-rows.length == 0 : Text { text: "暂无历史记录"; color: text-3; font-size: 0.923rem; vertical-alignment: center; }
+                    }
+                }
+            }
+
+            // ── AI 抽屉 ──
+            if root.drawer-type == "ai" : VerticalLayout {
+                vertical-stretch: 1;
+                spacing: 0;
+                // 状态条
+                Rectangle { height: 36px;
+                    HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 8px;
+                        Text { text: "AI 助手"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                        Rectangle { width: 6px; height: 6px; border-radius: 3px; background: root.ai-status-ok ? green : red; }
+                        Text { text: root.ai-status; color: text-3; font-size: 0.846rem; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        TouchArea { height: 26px; clicked => { root.confirm-dialog-message = "确定清空对话？"; root.confirm-dialog-target = "clear-ai"; root.confirm-dialog-visible = true; }
+                            Rectangle { height: 26px; border-radius: 6px; background: surface;
+                                border-width: 1px; border-color: border;
+                                HorizontalLayout { padding-left: 10px; padding-right: 10px;
+                                    Text { text: "清空"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                    }
+                    Rectangle { x: 0; y: 35px; width: 100%; height: 1px; background: border; }
+                }
+                // 上下文条
+                if root.ocr-src != "" : Rectangle {
+                    min-height: 40px; background: surface-2;
+                    HorizontalLayout { padding: 8px; spacing: 6px;
+                        Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                        Text { text: "上下文:"; color: text-2; font-size: 0.846rem; vertical-alignment: center; }
+                        Text { text: root.ocr-src; color: text-3; font-size: 0.846rem; vertical-alignment: center;
+                               wrap: word-wrap; max-height: 48px; overflow: clip;
+                        }
+                    }
+                }
+                // 对话区
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout { spacing: 8px; padding: 12px;
+                        for msg[idx] in root.ai-messages : Rectangle {
+                            border-radius: 10px;
+                            background: (idx < root.ai-msg-roles.length && root.ai-msg-roles[idx] == "user") ? #e0e7ff : surface-2;
+                            border-width: 1px; border-color: border;
+                            HorizontalLayout { padding: 10px; spacing: 8px;
+                                Text { text: msg; color: text; font-size: 1rem; wrap: word-wrap; horizontal-stretch: 1; }
+                                TouchArea { width: 56px; height: 26px; clicked => { root.copy-ai-message(msg); }
+                                    Rectangle { width: 56px; height: 26px; border-radius: 6px; background: (root.ai-copied-msg == msg) ? #dcfce7 : transparent;
+                                        Text { text: (root.ai-copied-msg == msg) ? "已复制" : "复制"; color: (root.ai-copied-msg == msg) ? #16a34a : text-3; font-size: 0.769rem; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                            }
+                        }
+                        if root.ai-streaming != "" : Rectangle {
+                            border-radius: 10px; background: accent-grad;
+                            HorizontalLayout { padding: 10px;
+                                Text { text: root.ai-streaming; color: on-accent; font-size: 1rem; wrap: word-wrap; }
+                            }
+                        }
+                    }
+                }
+                // 输入区
+                Rectangle { height: 64px; background: surface-2;
+                    Rectangle { x: 0; y: 0; width: 100%; height: 1px; background: border; }
+                    HorizontalLayout { padding: 12px; spacing: 8px;
+                        LineEdit { text <=> root.ai-input-text; placeholder-text: "输入问题，Enter 发送";
+                            // LineEdit 才有 accepted（Enter）回调；TextEdit 没有，Enter 只换行不发送
+                            accepted => { root.send-ai(root.ai-input-text); root.ai-input-text = ""; } }
+                        TouchArea { width: 64px; height: 36px; clicked => { root.send-ai(root.ai-input-text); root.ai-input-text = ""; }
+                            Rectangle { width: 64px; height: 36px; border-radius: 10px; background: accent-grad;
+                                Text { text: "发送"; color: on-accent; font-weight: 700;
+                                       horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+    }
+
+    // ===== 模态覆盖层 =====
+    if root.modal-visible : Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: #80000000;
+        TouchArea { clicked => { root.close-modal(); }
+            Rectangle { x: 0; y: 0; width: 100%; height: 100%; background: transparent; }
+        }
+
+        // ── 设置模态 ──
+        if root.modal-type == "settings" : Rectangle {
+            // 模态尺寸随界面缩放等比放大，否则 150% 时内容装不下（被裁/需滚动）
+            width: 640px * root.ui-scale-pct / 100; height: 480px * root.ui-scale-pct / 100;
+            x: root.width / 2 - 320px * root.ui-scale-pct / 100;
+            y: root.height / 2 - 240px * root.ui-scale-pct / 100;
+            background: surface;
+            border-radius: 12px;
+            border-width: 1px; border-color: border;
+            VerticalLayout { spacing: 0; padding: 0;
+                Rectangle { height: 48px;
+                    HorizontalLayout { padding-left: 16px; padding-right: 12px;
+                        Text { text: "设置"; color: text; font-size: 1.231rem; font-weight: 700; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        TouchArea { width: 32px; height: 32px; clicked => { root.close-modal(); }
+                            Rectangle { width: 32px; height: 32px; border-radius: 6px; background: surface-2;
+                                border-width: 1px; border-color: border;
+                                Text { text: "✕"; color: text-3; font-size: 1rem; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                    Rectangle { x: 0; y: 47px; width: 100%; height: 1px; background: border; }
+                }
+                ScrollView {
+                    vertical-stretch: 1;
+                    VerticalLayout { spacing: 20px; padding: 16px;
+                        // ── 翻译 ──
+                        VerticalLayout { spacing: 12px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "翻译"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            }
+                            Text { text: "翻译引擎"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            ComboBox { height: 40px; model: ["Argos (离线)", "Ollama (本地)", "SiliconFlow", "MyMemory", "有道智云"]; current-index <=> root.setting-engine-idx; }
+                            Text { text: "SiliconFlow API Key"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            TextEdit { text <=> root.setting-sf-key; min-height: 40px; max-height: 40px; placeholder-text: "sk-..."; }
+                            Text { text: "Ollama 地址"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            TextEdit { text <=> root.setting-ollama-url; min-height: 40px; max-height: 40px; placeholder-text: "http://localhost:11434"; }
+                            Text { text: "Ollama 模型"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            TextEdit { text <=> root.setting-ollama-model; min-height: 40px; max-height: 40px; placeholder-text: "qwen2.5:7b"; }
+                        }
+                        Rectangle { height: 1px; background: border; }
+                        // ── AI ──
+                        VerticalLayout { spacing: 12px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "AI"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            }
+                            Text { text: "AI 后端"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            ComboBox { height: 40px; model: ["SiliconFlow (在线)", "Ollama (本地)"]; current-index <=> root.setting-ai-backend-idx; }
+                            Text { text: "SiliconFlow AI Key"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            TextEdit { text <=> root.setting-ai-sf-key; min-height: 40px; max-height: 40px; placeholder-text: "sk-..."; }
+                            Text { text: "SiliconFlow 模型"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            TextEdit { text <=> root.setting-ai-sf-model; min-height: 40px; max-height: 40px; placeholder-text: "Qwen/Qwen2.5-7B-Instruct"; }
+                        }
+                        Rectangle { height: 1px; background: border; }
+                        // ── 划词翻译 ──
+                        VerticalLayout { spacing: 12px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "划词翻译"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            }
+                            HorizontalLayout { spacing: 12px; height: 34px;
+                                TouchArea {
+                                    height: 34px; horizontal-stretch: 1;
+                                    clicked => { root.setting-selection-enabled = !root.setting-selection-enabled; }
+                                    Rectangle { height: 34px; border-radius: 8px;
+                                        background: root.setting-selection-enabled ? accent : surface;
+                                        border-width: root.setting-selection-enabled ? 2px : 1px;
+                                        border-color: root.setting-selection-enabled ? accent : border;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text {
+                                                text: root.setting-selection-enabled ? "已启用" : "已禁用";
+                                                color: root.setting-selection-enabled ? on-accent : text-2;
+                                                font-size: 0.923rem; font-weight: 600;
+                                                horizontal-alignment: center; vertical-alignment: center;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Text { text: "启用后，在桌面端选中文本时自动弹出翻译气泡。建议：使用浏览器扩展时关闭此功能，避免双气泡冲突。";
+                                  color: text-3; font-size: 0.846rem; wrap: word-wrap; }
+                        }
+                        Rectangle { height: 1px; background: border; }
+                        // ── 学习词典（2026-10-17 词典切换入口）──
+                        VerticalLayout { spacing: 12px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "学习词典"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            }
+                            Text { text: "释义来源"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            ComboBox { height: 40px; model: ["英英释义 (Wiktionary)", "英汉释义 (ECDICT)"]; current-index <=> root.setting-dict-idx; }
+                            Text { text: "切换后新查询立即生效。例句/词根/发音不受影响；英汉模式提供 340 万词中文释义（数据文件 stardict.db 缺失时自动回退英英）。";
+                                  color: text-3; font-size: 0.846rem; wrap: word-wrap; }
+                            // —— 学习组别（2026-10-17 学段词表）——
+                            Text { text: "学习组别"; color: text-2; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            ComboBox { height: 40px; model: root.stage-options; current-index <=> root.setting-stage-idx; }
+                            Text { text: "学习窗口复习队列只显示该组别的词。自定义词表：在 %APPDATA%/WinOCR/vocab/ 放 txt 文件（每行一个单词，文件名即组名），重启生效。";
+                                  color: text-3; font-size: 0.846rem; wrap: word-wrap; }
+                        }
+                        Rectangle { height: 1px; background: border; }
+                        // ── 主题 ──
+                        VerticalLayout { spacing: 12px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "外观主题"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            }
+                            HorizontalLayout { spacing: 8px;
+                                TouchArea { height: 36px; horizontal-stretch: 1;
+                                    clicked => { root.change-theme("A"); }
+                                    Rectangle { height: 36px; border-radius: 8px;
+                                        background: root.setting-theme-name == "A" ? accent : surface;
+                                        border-width: root.setting-theme-name == "A" ? 2px : 1px;
+                                        border-color: root.setting-theme-name == "A" ? accent : border;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text { text: "A 清晰高效"; color: root.setting-theme-name == "A" ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                                TouchArea { height: 36px; horizontal-stretch: 1;
+                                    clicked => { root.change-theme("B"); }
+                                    Rectangle { height: 36px; border-radius: 8px;
+                                        background: root.setting-theme-name == "B" ? accent : surface;
+                                        border-width: root.setting-theme-name == "B" ? 2px : 1px;
+                                        border-color: root.setting-theme-name == "B" ? accent : border;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text { text: "B 高饱和"; color: root.setting-theme-name == "B" ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                                TouchArea { height: 36px; horizontal-stretch: 1;
+                                    clicked => { root.change-theme("C"); }
+                                    Rectangle { height: 36px; border-radius: 8px;
+                                        background: root.setting-theme-name == "C" ? accent : surface;
+                                        border-width: root.setting-theme-name == "C" ? 2px : 1px;
+                                        border-color: root.setting-theme-name == "C" ? accent : border;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text { text: "C 舒适阅读"; color: root.setting-theme-name == "C" ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                            }
+                            HorizontalLayout { spacing: 8px;
+                                TouchArea { height: 36px; horizontal-stretch: 1;
+                                    clicked => { root.change-theme("E"); }
+                                    Rectangle { height: 36px; border-radius: 8px;
+                                        background: root.setting-theme-name == "E" ? accent : surface;
+                                        border-width: root.setting-theme-name == "E" ? 2px : 1px;
+                                        border-color: root.setting-theme-name == "E" ? accent : border;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text { text: "E 护眼墨绿"; color: root.setting-theme-name == "E" ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                                TouchArea { height: 36px; horizontal-stretch: 1;
+                                    clicked => { root.change-theme("F"); }
+                                    Rectangle { height: 36px; border-radius: 8px;
+                                        background: root.setting-theme-name == "F" ? accent : surface;
+                                        border-width: root.setting-theme-name == "F" ? 2px : 1px;
+                                        border-color: root.setting-theme-name == "F" ? accent : border;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text { text: "F 纸质暖调"; color: root.setting-theme-name == "F" ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // —— 界面缩放 ——
+                            Text { text: "界面缩放"; color: text; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            HorizontalLayout { spacing: 8px; height: 34px;
+                                for pct[sidx] in root.ui-scale-options : TouchArea {
+                                    height: 34px; horizontal-stretch: 1;
+                                    clicked => { root.apply-ui-scale(sidx); }
+                                    Rectangle { height: 34px; border-radius: 8px;
+                                        background: root.setting-ui-scale-idx == sidx ? accent : surface;
+                                        border-width: root.setting-ui-scale-idx == sidx ? 2px : 1px;
+                                        border-color: root.setting-ui-scale-idx == sidx ? accent : border;
+                                        HorizontalLayout { padding-left: 4px; padding-right: 4px;
+                                            Text { text: pct + "%";
+                                                  color: root.setting-ui-scale-idx == sidx ? on-accent : text-2;
+                                                  font-size: 0.923rem; font-weight: 600;
+                                                  horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // —— 界面字体 ——
+                            Text { text: "界面字体"; color: text; font-size: 1rem; font-weight: 600; vertical-alignment: center; }
+                            ComboBox {
+                                min-height: 40px; max-height: 40px;
+                                model: ["默认（系统内置）", "微软雅黑", "宋体", "黑体", "楷体"];
+                                current-index <=> root.setting-ui-font-idx;
+                                selected => { root.apply-ui-font(root.setting-ui-font-idx); }
+                            }
+                            Text { text: "提示：缩放与字体立即生效并自动保存。窗口可自由拖拽放大，右下角可缩放。";
+                                  color: text-3; font-size: 0.846rem; wrap: word-wrap; }
+                        }
+                    }
+                }
+                // 保存条
+                Rectangle { height: 52px; background: surface;
+                    Rectangle { x: 0; y: 0; width: 100%; height: 1px; background: border; }
+                    HorizontalLayout { padding-left: 16px; padding-right: 16px; spacing: 8px;
+                        Text { text: root.setting-save-status; color: text-3; font-size: 0.923rem; vertical-alignment: center; horizontal-stretch: 1; }
+                        TouchArea { width: 88px; height: 36px; clicked => { root.save-settings(); }
+                            Rectangle { width: 88px; height: 36px; border-radius: 10px; background: accent-grad;
+                                Text { text: "保存"; color: on-accent; font-weight: 700;
+                                       horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 导出模态 ──
+        if root.modal-type == "export" : Rectangle {
+            // 同设置模态：随缩放等比放大
+            width: 560px * root.ui-scale-pct / 100; height: 420px * root.ui-scale-pct / 100;
+            x: root.width / 2 - 280px * root.ui-scale-pct / 100;
+            y: root.height / 2 - 210px * root.ui-scale-pct / 100;
+            background: surface;
+            border-radius: 12px;
+            border-width: 1px; border-color: border;
+            VerticalLayout { spacing: 0; padding: 0;
+                Rectangle { height: 48px;
+                    HorizontalLayout { padding-left: 16px; padding-right: 12px;
+                        Text { text: "导出数据"; color: text; font-size: 1.231rem; font-weight: 700; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        TouchArea { width: 32px; height: 32px; clicked => { root.close-modal(); }
+                            Rectangle { width: 32px; height: 32px; border-radius: 6px; background: surface-2;
+                                border-width: 1px; border-color: border;
+                                Text { text: "✕"; color: text-3; font-size: 1rem; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                    Rectangle { x: 0; y: 47px; width: 100%; height: 1px; background: border; }
+                }
+                VerticalLayout { spacing: 16px; padding: 20px;
+                    Text { text: "选择导出格式"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                    HorizontalLayout { spacing: 8px;
+                        TouchArea { height: 36px; horizontal-stretch: 1;
+                            clicked => { root.export-format = 0; }
+                            Rectangle { height: 36px; border-radius: 8px;
+                                background: root.export-format == 0 ? accent : surface;
+                                border-width: root.export-format == 0 ? 2px : 1px;
+                                border-color: root.export-format == 0 ? accent : border;
+                                HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                    Text { text: "Anki TSV"; color: root.export-format == 0 ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                        TouchArea { height: 36px; horizontal-stretch: 1;
+                            clicked => { root.export-format = 1; }
+                            Rectangle { height: 36px; border-radius: 8px;
+                                background: root.export-format == 1 ? accent : surface;
+                                border-width: root.export-format == 1 ? 2px : 1px;
+                                border-color: root.export-format == 1 ? accent : border;
+                                HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                    Text { text: "Markdown"; color: root.export-format == 1 ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                        TouchArea { height: 36px; horizontal-stretch: 1;
+                            clicked => { root.export-format = 2; }
+                            Rectangle { height: 36px; border-radius: 8px;
+                                background: root.export-format == 2 ? accent : surface;
+                                border-width: root.export-format == 2 ? 2px : 1px;
+                                border-color: root.export-format == 2 ? accent : border;
+                                HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                    Text { text: "欧路 XML"; color: root.export-format == 2 ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                        TouchArea { height: 36px; horizontal-stretch: 1;
+                            clicked => { root.export-format = 3; }
+                            Rectangle { height: 36px; border-radius: 8px;
+                                background: root.export-format == 3 ? accent : surface;
+                                border-width: root.export-format == 3 ? 2px : 1px;
+                                border-color: root.export-format == 3 ? accent : border;
+                                HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                    Text { text: "纯文本"; color: root.export-format == 3 ? on-accent : text; font-size: 1rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                    }
+                    HorizontalLayout { spacing: 12px;
+                        Text { text: "项目:"; color: text-2; font-size: 1rem; vertical-alignment: center; }
+                        ComboBox { height: 36px; model: root.export-projects; current-index: 0; }
+                        Rectangle { horizontal-stretch: 1; }
+                        TouchArea { height: 36px; clicked => { root.export-file(); }
+                            Rectangle { height: 36px; border-radius: 10px; background: accent-grad;
+                                HorizontalLayout { padding-left: 16px; padding-right: 16px;
+                                    Text { text: "导出"; color: on-accent; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                    }
+                    Text { text: root.export-status; color: text-3; font-size: 0.923rem; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // ── 生词学习卡片（四卡片工作台） ──
+        if root.modal-type == "word-card" : Rectangle {
+            width: 720px * root.ui-scale-pct / 100; height: 540px * root.ui-scale-pct / 100;
+            x: root.width / 2 - 360px * root.ui-scale-pct / 100;
+            y: root.height / 2 - 270px * root.ui-scale-pct / 100;
+            background: surface;
+            border-radius: 12px;
+            border-width: 1px; border-color: border;
+            VerticalLayout { spacing: 0; padding: 0;
+                Rectangle { height: 56px;
+                    HorizontalLayout { padding-left: 16px; padding-right: 12px; spacing: 8px;
+                        VerticalLayout { padding-top: 6px; padding-bottom: 6px; horizontal-stretch: 1; spacing: 2px;
+                            HorizontalLayout { spacing: 8px;
+                                Text { text: root.word-card-word; color: text; font-size: 1.385rem; font-weight: 700; vertical-alignment: center; }
+                                Text { text: root.word-card-phonetic; color: text-2; font-size: 1rem; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; }
+                                Text { text: root.word-card-level; color: accent; font-size: 0.846rem; font-weight: 600; vertical-alignment: center; }
+                                Text { text: root.word-card-project; color: text-3; font-size: 0.846rem; vertical-alignment: center; }
+                            }
+                            Text { text: root.word-card-context; color: text-3; font-size: 0.846rem; wrap: word-wrap; }
+                        }
+                        TouchArea { width: 32px; height: 32px; clicked => { root.close-modal(); }
+                            Rectangle { width: 32px; height: 32px; border-radius: 6px; background: surface-2;
+                                border-width: 1px; border-color: border;
+                                Text { text: "✕"; color: text-3; font-size: 1rem; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                    }
+                    Rectangle { x: 0; y: 55px; width: 100%; height: 1px; background: border; }
+                }
+                // 四卡片 Tab 切换
+                HorizontalLayout { height: 44px; padding-left: 16px; padding-right: 16px; spacing: 8px;
+                    TouchArea { height: 32px; horizontal-stretch: 1; clicked => { root.word-card-set-tab(0); }
+                        Rectangle { height: 32px; border-radius: 8px; background: root.word-card-active-tab == 0 ? accent : surface;
+                            border-width: root.word-card-active-tab == 0 ? 2px : 1px; border-color: root.word-card-active-tab == 0 ? accent : border;
+                            Text { text: "📖 释义"; color: root.word-card-active-tab == 0 ? on-accent : text-2; font-size: 0.923rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                    TouchArea { height: 32px; horizontal-stretch: 1; clicked => { root.word-card-set-tab(1); }
+                        Rectangle { height: 32px; border-radius: 8px; background: root.word-card-active-tab == 1 ? accent : surface;
+                            border-width: root.word-card-active-tab == 1 ? 2px : 1px; border-color: root.word-card-active-tab == 1 ? accent : border;
+                            Text { text: "🔊 发音"; color: root.word-card-active-tab == 1 ? on-accent : text-2; font-size: 0.923rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                    TouchArea { height: 32px; horizontal-stretch: 1; clicked => { root.word-card-set-tab(2); }
+                        Rectangle { height: 32px; border-radius: 8px; background: root.word-card-active-tab == 2 ? accent : surface;
+                            border-width: root.word-card-active-tab == 2 ? 2px : 1px; border-color: root.word-card-active-tab == 2 ? accent : border;
+                            Text { text: "🧩 词根"; color: root.word-card-active-tab == 2 ? on-accent : text-2; font-size: 0.923rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                    TouchArea { height: 32px; horizontal-stretch: 1; clicked => { root.word-card-set-tab(3); }
+                        Rectangle { height: 32px; border-radius: 8px; background: root.word-card-active-tab == 3 ? accent : surface;
+                            border-width: root.word-card-active-tab == 3 ? 2px : 1px; border-color: root.word-card-active-tab == 3 ? accent : border;
+                            Text { text: "🔁 复习"; color: root.word-card-active-tab == 3 ? on-accent : text-2; font-size: 0.923rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                }
+                Rectangle { height: 1px; background: border; }
+                ScrollView { vertical-stretch: 1;
+                    VerticalLayout { spacing: 14px; padding: 18px;
+                        // ── 释义卡（词典全文视图）──
+                        if root.word-card-active-tab == 0 : VerticalLayout { spacing: 12px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "📖 词典全文"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; }
+                                TouchArea { height: 30px; clicked => { root.word-card-lookup-dict(); }
+                                    Rectangle { height: 30px; border-radius: 8px; background: accent-grad;
+                                        HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                            Text { text: "重新查询"; color: on-accent; font-size: 0.846rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                            }
+                            Text { text: root.word-card-definition != "" ? root.word-card-definition : "词典查询中…\n未收录的词会保持空白（词典为精确匹配，26 万词原形）"; color: root.word-card-definition != "" ? text-2 : text-3; font-size: 0.923rem; wrap: word-wrap; }
+                            Rectangle { height: 1px; background: border; }
+                            Text { text: "中文释义"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            Text { text: root.word-card-translation != "" ? root.word-card-translation : "暂无 · Argos 离线翻译回填中"; color: root.word-card-translation != "" ? text : text-3; font-size: 1.154rem; font-weight: 600; wrap: word-wrap; }
+                            Rectangle { height: 1px; background: border; }
+                            Text { text: "📌 采集原句"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            if root.word-card-context != "" : Text { text: root.word-card-context; color: text-2; font-size: 0.923rem; wrap: word-wrap; }
+                            if root.word-card-context == "" : Text { text: "无（该词非划句采集）"; color: text-3; font-size: 0.923rem; }
+                        }
+                        // ── 发音卡 ──
+                        if root.word-card-active-tab == 1 : VerticalLayout { spacing: 14px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "音标"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                            Text { text: root.word-card-phonetic; color: text; font-size: 1.385rem; wrap: word-wrap; }
+                            HorizontalLayout { spacing: 12px;
+                                TouchArea { height: 40px; horizontal-stretch: 1; clicked => { root.word-card-play-tts(); }
+                                    Rectangle { height: 40px; border-radius: 10px; background: accent-grad;
+                                        Text { text: "🔊 播放发音"; color: on-accent; font-size: 1rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                            }
+                            Text { text: "提示：发音使用系统 TTS（SAPI），若已安装更好的语音包可自动使用。"; color: text-3; font-size: 0.846rem; wrap: word-wrap; }
+                        }
+                        // ── 词根卡 ──
+                        if root.word-card-active-tab == 2 : VerticalLayout { spacing: 12px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "词根拆解"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            }
+                            Text { text: root.word-card-roots; color: text-2; font-size: 1.077rem; wrap: word-wrap; }
+                            Rectangle { height: 1px; background: border; }
+                            Text { text: "词源链"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                            Text { text: root.word-card-etymology; color: text-2; font-size: 1rem; wrap: word-wrap; }
+                        }
+                        // ── 复习卡 ──
+                        if root.word-card-active-tab == 3 : VerticalLayout { spacing: 14px;
+                            HorizontalLayout { spacing: 8px;
+                                Rectangle { width: 3px; height: 16px; border-radius: 2px; background: accent; }
+                                Text { text: "SM-2 复习"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; }
+                                Text { text: "熟练度: " + root.word-card-mastery + "/5"; color: accent; font-size: 0.923rem; font-weight: 600; vertical-alignment: center; }
+                            }
+                            Text { text: "下次复习: " + root.word-card-next-review; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                            Rectangle { height: 1px; background: border; }
+                            Text { text: "这次记得怎么样？"; color: text; font-size: 1rem; font-weight: 700; vertical-alignment: center; }
+                            HorizontalLayout { spacing: 8px;
+                                TouchArea { height: 44px; horizontal-stretch: 1; clicked => { root.word-card-grade(0); }
+                                    Rectangle { height: 44px; border-radius: 10px; background: #fee2e2;
+                                        Text { text: "忘记"; color: #b91c1c; font-size: 1rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                                TouchArea { height: 44px; horizontal-stretch: 1; clicked => { root.word-card-grade(3); }
+                                    Rectangle { height: 44px; border-radius: 10px; background: #fef3c7;
+                                        Text { text: "模糊"; color: #b45309; font-size: 1rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                                TouchArea { height: 44px; horizontal-stretch: 1; clicked => { root.word-card-grade(4); }
+                                    Rectangle { height: 44px; border-radius: 10px; background: #dcfce7;
+                                        Text { text: "记得"; color: #15803d; font-size: 1rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                                TouchArea { height: 44px; horizontal-stretch: 1; clicked => { root.word-card-grade(5); }
+                                    Rectangle { height: 44px; border-radius: 10px; background: #dbeafe;
+                                        Text { text: "容易"; color: #1d4ed8; font-size: 1rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+
+    // ===== 确认弹窗覆盖层 =====
+    if root.confirm-dialog-visible : Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: #80000000;
+        Rectangle {
+            width: 320px; height: 160px;
+            x: root.width / 2 - 160px; y: root.height / 2 - 80px;
+            border-radius: 12px; background: surface;
+            border-width: 1px; border-color: border;
+            VerticalLayout { padding: 20px; spacing: 16px;
+                Text { text: "确认操作"; color: text; font-size: 1.077rem; font-weight: 700; vertical-alignment: center; }
+                Text { text: root.confirm-dialog-message; color: text-2; font-size: 0.923rem; wrap: word-wrap; vertical-alignment: center; }
+                HorizontalLayout { spacing: 8px;
+                    Rectangle { horizontal-stretch: 1; }
+                    TouchArea { width: 72px; height: 32px; clicked => { root.confirm-dialog-visible = false; }
+                        Rectangle { width: 72px; height: 32px; border-radius: 6px; background: surface;
+                            border-width: 1px; border-color: border;
+                            Text { text: "取消"; color: text-2; font-size: 0.923rem; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                    TouchArea { width: 72px; height: 32px; clicked => { root.confirm-dialog-ok(); }
+                        Rectangle { width: 72px; height: 32px; border-radius: 6px; background: red;
+                            Text { text: "确认"; color: on-accent; font-size: 0.923rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ===== URL 弹窗覆盖层 =====
+    if root.url-dialog-visible : Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: #80000000;
+        TouchArea { clicked => { root.url-dialog-visible = false; }
+            Rectangle { x: root.width / 2 - 200px; y: root.height / 2 - 60px;
+                width: 400px; height: 120px;
+                background: surface;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: border;
+                VerticalLayout { padding: 16px; spacing: 10px;
+                    Text { text: "在线图片"; font-weight: 600; font-size: 1.077rem; color: text; vertical-alignment: center; }
+                    Text { text: "请输入图片 URL："; color: text-2; font-size: 0.923rem; }
+                    TextEdit { min-height: 36px; max-height: 36px; text <=> root.url-dialog-input; font-size: 0.923rem; }
+                    HorizontalLayout { spacing: 8px;
+                        Rectangle { horizontal-stretch: 1; }
+                        TouchArea { clicked => { root.url-dialog-visible = false; }
+                            Rectangle { width: 60px; height: 28px; border-radius: 6px;
+                                border-width: 1px; border-color: border;
+                                HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                    Text { text: "取消"; color: text-2; font-size: 0.923rem; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                        TouchArea { clicked => { root.url-dialog-submit(root.url-dialog-input); }
+                            Rectangle { width: 60px; height: 28px; border-radius: 6px;
+                                background: accent;
+                                HorizontalLayout { padding-left: 12px; padding-right: 12px;
+                                    Text { text: "确定"; color: on-accent; font-size: 0.923rem; font-weight: 600; vertical-alignment: center; }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}

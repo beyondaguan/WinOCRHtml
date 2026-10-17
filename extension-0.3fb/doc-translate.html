@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WinOCR 文档翻译</title>
+  <style>
+    body { font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif; margin: 0; padding: 16px; color: #222; background: #f5f7fa; }
+    h2 { margin: 0 0 4px; font-size: 17px; }
+    .sub { color: #888; font-size: 12px; margin-bottom: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    label { font-size: 13px; color: #555; }
+    select, button, input[type=file] { font: 13px system-ui; padding: 4px 8px; border-radius: 6px; border: 1px solid #d9d9d9; background: #fff; }
+    button { background: #1677ff; color: #fff; border-color: #1677ff; cursor: pointer; }
+    button:hover { background: #0e5fd8; }
+    button[disabled] { background: #b8c4d4; border-color: #b8c4d4; cursor: default; }
+    textarea { width: 100%; height: 220px; box-sizing: border-box; padding: 8px; border: 1px solid #d9d9d9; border-radius: 8px; font: 13px/1.6 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .out { border: 1px solid #d9d9d9; border-radius: 8px; padding: 10px; background: #fff; height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+    .out h4 { margin: 10px 0 4px; font-size: 13px; color: #1677ff; }
+    .hint { color: #b06; font-size: 12px; }
+    .ok { color: #389e0d; }
+  </style>
+</head>
+<body>
+  <h2>WinOCR 文档翻译</h2>
+  <div class="sub">粘贴文本或上传 <b>.txt / .md</b> 文件 → 分块翻译 → 双语对照 → 导出 Markdown。
+    <span class="hint">（PDF/Word 按句保坐标排版由宿主 pdf_translate.rs 负责，本页先支持纯文本类；PDF UI 后续接入）</span></div>
+
+  <div class="row">
+    <label>目标语言</label>
+    <select id="tgt"></select>
+    <label>源语言</label>
+    <select id="src"><option value="auto">自动</option></select>
+    <input type="file" id="file" accept=".txt,.md,.text" />
+    <button id="go">翻译</button>
+    <button id="export" disabled>导出 .md</button>
+    <span id="status"></span>
+  </div>
+
+  <div class="cols">
+    <div>
+      <label>原文</label>
+      <textarea id="srcText" placeholder="在此粘贴待翻译文本，或点右侧「选择文件」载入 .txt/.md …"></textarea>
+    </div>
+    <div>
+      <label>译文（双语对照）</label>
+      <div class="out" id="out"></div>
+    </div>
+  </div>
+
+  <script src="js/common.js"></script>
+  <script src="js/doc-translate.js"></script>
+</body>
+</html>

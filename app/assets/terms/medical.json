@@ -1,0 +1,847 @@
+{
+  "myocardial infarction": {
+    "zh": "心肌梗死",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "cerebrovascular accident": {
+    "zh": "脑卒中",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "pneumonia": {
+    "zh": "肺炎",
+    "cat": "呼吸病学",
+    "level": "专业"
+  },
+  "hypertension": {
+    "zh": "高血压",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "diabetes mellitus": {
+    "zh": "糖尿病",
+    "cat": "内分泌学",
+    "level": "专业"
+  },
+  "renal failure": {
+    "zh": "肾衰竭",
+    "cat": "肾脏病学",
+    "level": "专业"
+  },
+  "hepatic cirrhosis": {
+    "zh": "肝硬化",
+    "cat": "消化病学",
+    "level": "专业"
+  },
+  "leukemia": {
+    "zh": "白血病",
+    "cat": "血液病学",
+    "level": "专业"
+  },
+  "lymphoma": {
+    "zh": "淋巴瘤",
+    "cat": "血液病学",
+    "level": "专业"
+  },
+  "osteoporosis": {
+    "zh": "骨质疏松症",
+    "cat": "骨科学",
+    "level": "专业"
+  },
+  "arrhythmia": {
+    "zh": "心律失常",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "tachycardia": {
+    "zh": "心动过速",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "bradycardia": {
+    "zh": "心动过缓",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "hypotension": {
+    "zh": "低血压",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "hyperglycemia": {
+    "zh": "高血糖",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "hypoglycemia": {
+    "zh": "低血糖",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "anemia": {
+    "zh": "贫血",
+    "cat": "血液病学",
+    "level": "专业"
+  },
+  "thrombosis": {
+    "zh": "血栓形成",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "embolism": {
+    "zh": "栓塞",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "sepsis": {
+    "zh": "败血症",
+    "cat": "感染病学",
+    "level": "专业"
+  },
+  "meningitis": {
+    "zh": "脑膜炎",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "encephalitis": {
+    "zh": "脑炎",
+    "cat": "神经病学",
+    "level": "专业"
+  },
+  "nephritis": {
+    "zh": "肾炎",
+    "cat": "泌尿外科学",
+    "level": "专业"
+  },
+  "gastritis": {
+    "zh": "胃炎",
+    "cat": "消化病学",
+    "level": "专业"
+  },
+  "hepatitis": {
+    "zh": "肝炎",
+    "cat": "消化病学",
+    "level": "专业"
+  },
+  "pancreatitis": {
+    "zh": "胰腺炎",
+    "cat": "消化病学",
+    "level": "专业"
+  },
+  "appendicitis": {
+    "zh": "阑尾炎",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "cholecystitis": {
+    "zh": "胆囊炎",
+    "cat": "泌尿外科学",
+    "level": "专业"
+  },
+  "peritonitis": {
+    "zh": "腹膜炎",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "pneumothorax": {
+    "zh": "气胸",
+    "cat": "呼吸病学",
+    "level": "专业"
+  },
+  "hemothorax": {
+    "zh": "血胸",
+    "cat": "血液病学",
+    "level": "专业"
+  },
+  "fracture": {
+    "zh": "骨折",
+    "cat": "骨科学",
+    "level": "专业"
+  },
+  "dislocation": {
+    "zh": "脱臼",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "sprain": {
+    "zh": "扭伤",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "strain": {
+    "zh": "拉伤",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "concussion": {
+    "zh": "脑震荡",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "contusion": {
+    "zh": "挫伤",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "laceration": {
+    "zh": "撕裂伤",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "abrasion": {
+    "zh": "擦伤",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "ulcer": {
+    "zh": "溃疡",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "carcinoma": {
+    "zh": "癌",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "sarcoma": {
+    "zh": "肉瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "melanoma": {
+    "zh": "黑色素瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "adenoma": {
+    "zh": "腺瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "fibroma": {
+    "zh": "纤维瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "lipoma": {
+    "zh": "脂肪瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "hemangioma": {
+    "zh": "血管瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "neuroblastoma": {
+    "zh": "神经母细胞瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "retinoblastoma": {
+    "zh": "视网膜母细胞瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "osteosarcoma": {
+    "zh": "骨肉瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "chondrosarcoma": {
+    "zh": "软骨肉瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "leiomyoma": {
+    "zh": "平滑肌瘤",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "adenocarcinoma": {
+    "zh": "腺癌",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "squamous cell carcinoma": {
+    "zh": "鳞状细胞癌",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "basal cell carcinoma": {
+    "zh": "基底细胞癌",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "transitional cell carcinoma": {
+    "zh": "移行细胞癌",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "small cell carcinoma": {
+    "zh": "小细胞癌",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "non-small cell carcinoma": {
+    "zh": "非小细胞癌",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "metastasis": {
+    "zh": "转移",
+    "cat": "肿瘤学",
+    "level": "专业"
+  },
+  "recurrence": {
+    "zh": "复发",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "remission": {
+    "zh": "缓解",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "prognosis": {
+    "zh": "预后",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "diagnosis": {
+    "zh": "诊断",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "differential diagnosis": {
+    "zh": "鉴别诊断",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "treatment": {
+    "zh": "治疗",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "surgery": {
+    "zh": "手术",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "chemotherapy": {
+    "zh": "化疗",
+    "cat": "血液病学",
+    "level": "专业"
+  },
+  "radiotherapy": {
+    "zh": "放疗",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "immunotherapy": {
+    "zh": "免疫治疗",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "hormone therapy": {
+    "zh": "激素治疗",
+    "cat": "内分泌学",
+    "level": "专业"
+  },
+  "targeted therapy": {
+    "zh": "靶向治疗",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "palliative care": {
+    "zh": "姑息治疗",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "adjuvant therapy": {
+    "zh": "辅助治疗",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "neoadjuvant therapy": {
+    "zh": "新辅助治疗",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "prophylaxis": {
+    "zh": "预防",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "contraindication": {
+    "zh": "禁忌症",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "side effect": {
+    "zh": "副作用",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "adverse reaction": {
+    "zh": "不良反应",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "allergy": {
+    "zh": "过敏",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "anaphylaxis": {
+    "zh": "过敏性休克",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "intolerance": {
+    "zh": "不耐受",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "resistance": {
+    "zh": "耐药",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "sensitivity": {
+    "zh": "敏感性",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "specificity": {
+    "zh": "特异性",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "efficacy": {
+    "zh": "疗效",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "potency": {
+    "zh": "药效",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "bioavailability": {
+    "zh": "生物利用度",
+    "cat": "消化病学",
+    "level": "专业"
+  },
+  "pharmacokinetics": {
+    "zh": "药代动力学",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "pharmacodynamics": {
+    "zh": "药效动力学",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "half-life": {
+    "zh": "半衰期",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "clearance": {
+    "zh": "清除率",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "volume of distribution": {
+    "zh": "分布容积",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "protein binding": {
+    "zh": "蛋白结合率",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "metabolism": {
+    "zh": "代谢",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "excretion": {
+    "zh": "排泄",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "absorption": {
+    "zh": "吸收",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "distribution": {
+    "zh": "分布",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "biotransformation": {
+    "zh": "生物转化",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "enzyme induction": {
+    "zh": "酶诱导",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "enzyme inhibition": {
+    "zh": "酶抑制",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "drug interaction": {
+    "zh": "药物相互作用",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "contraindicated": {
+    "zh": "禁忌",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "indicated": {
+    "zh": "适应症",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "dose": {
+    "zh": "剂量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "dosage": {
+    "zh": "用量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "administration": {
+    "zh": "给药",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "route": {
+    "zh": "途径",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "frequency": {
+    "zh": "频次",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "duration": {
+    "zh": "疗程",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "regimen": {
+    "zh": "方案",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "protocol": {
+    "zh": "方案",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "trial": {
+    "zh": "试验",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "placebo": {
+    "zh": "安慰剂",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "control group": {
+    "zh": "对照组",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "experimental group": {
+    "zh": "实验组",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "randomized": {
+    "zh": "随机化",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "double-blind": {
+    "zh": "双盲",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "single-blind": {
+    "zh": "单盲",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "open-label": {
+    "zh": "开放标签",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "crossover": {
+    "zh": "交叉设计",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "parallel group": {
+    "zh": "平行组",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "multicenter": {
+    "zh": "多中心",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "cohort study": {
+    "zh": "队列研究",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "case-control study": {
+    "zh": "病例对照研究",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "cross-sectional study": {
+    "zh": "横断面研究",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "longitudinal study": {
+    "zh": "纵向研究",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "prospective study": {
+    "zh": "前瞻性研究",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "retrospective study": {
+    "zh": "回顾性研究",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "meta-analysis": {
+    "zh": "荟萃分析",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "systematic review": {
+    "zh": "系统综述",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "randomized controlled trial": {
+    "zh": "随机对照试验",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "clinical trial": {
+    "zh": "临床试验",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "phase I trial": {
+    "zh": "I期临床试验",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "phase II trial": {
+    "zh": "II期临床试验",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "phase III trial": {
+    "zh": "III期临床试验",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "phase IV trial": {
+    "zh": "IV期临床试验",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "adverse event": {
+    "zh": "不良事件",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "serious adverse event": {
+    "zh": "严重不良事件",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "adverse drug reaction": {
+    "zh": "药物不良反应",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "drug safety": {
+    "zh": "药物安全性",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "pharmacovigilance": {
+    "zh": "药物警戒",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "toxicology": {
+    "zh": "毒理学",
+    "cat": "消化病学",
+    "level": "专业"
+  },
+  "therapeutic index": {
+    "zh": "治疗指数",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "margin of safety": {
+    "zh": "安全范围",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "lethal dose": {
+    "zh": "致死剂量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "toxic dose": {
+    "zh": "中毒剂量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "maximum tolerated dose": {
+    "zh": "最大耐受剂量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "minimum effective dose": {
+    "zh": "最小有效剂量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "loading dose": {
+    "zh": "负荷剂量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "maintenance dose": {
+    "zh": "维持剂量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "bolus dose": {
+    "zh": "推注剂量",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "infusion": {
+    "zh": "输注",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "injection": {
+    "zh": "注射",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "subcutaneous": {
+    "zh": "皮下注射",
+    "cat": "皮肤病学",
+    "level": "专业"
+  },
+  "intramuscular": {
+    "zh": "肌肉注射",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "intravenous": {
+    "zh": "静脉注射",
+    "cat": "心血管病学",
+    "level": "专业"
+  },
+  "intrathecal": {
+    "zh": "鞘内注射",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "epidural": {
+    "zh": "硬膜外注射",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "topical": {
+    "zh": "外用",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "ophthalmic": {
+    "zh": "眼科用药",
+    "cat": "眼科学",
+    "level": "专业"
+  },
+  "otic": {
+    "zh": "耳科用药",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "nasal": {
+    "zh": "鼻腔用药",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "inhalation": {
+    "zh": "吸入用药",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "rectal": {
+    "zh": "直肠给药",
+    "cat": "消化病学",
+    "level": "专业"
+  },
+  "vaginal": {
+    "zh": "阴道给药",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "sublingual": {
+    "zh": "舌下含服",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "buccal": {
+    "zh": "口腔黏膜用药",
+    "cat": "通用医学",
+    "level": "专业"
+  },
+  "transdermal": {
+    "zh": "透皮给药",
+    "cat": "皮肤病学",
+    "level": "专业"
+  },
+  "iontophoresis": {
+    "zh": "离子导入",
+    "cat": "通用医学",
+    "level": "专业"
+  }
+}

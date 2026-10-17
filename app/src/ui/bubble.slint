@@ -1,0 +1,280 @@
+// ============================================================
+// WinOCR 划词气泡 · P3-3
+// 独立无边框置顶浮层窗口。生命周期与显隐由 services::attach 的 overlay_* 驱动
+// （见 app/src/ui/mod.rs），Rust 侧不调用 hide()。
+// ⚠️ 铁律：本窗口必须整体不透明 —— Windows 上 Slint 窗口默认走 DwmEnableBlurBehindWindow，
+//    而软件渲染 + softbuffer(BitBlt/XRGB) 会丢弃 alpha，未涂满的像素会渲染成【黑色】。
+//    故：窗口 background 不透明 + 最外层矩形直角铺满整窗，border-radius 只在内部用。
+// ⚠️ title 是 Win32 FindWindowW 的定位键，与 app/src/ui/mod.rs 的 BUBBLE_TITLE 常量必须逐字一致。
+// ============================================================
+export component SelectionBubble inherits Window {
+    title: "WinOCR-SelectionBubble";
+    width: 360px;
+    // 高度自适应：不设显式 height —— 窗口高度 = 内容 preferred 高度。
+    // 译文 Text 是 wrap 的，其 preferred 高度随文本行数增长 → 气泡随之变高；
+    // min-height 保底（busy/短译文时不缩成一条），max-height 封顶（超长译文 elide）。
+    min-height: 224px;
+    max-height: 520px;
+    no-frame: true;
+    always-on-top: true;
+    // 不透明白底：软件渲染器丢弃 alpha，透明/半透明处会呈黑色（见文件头铁律）
+    background: surface;
+
+    in-out property <string> source-text: "";       // 划词原文（Rust 侧已截断）
+    in-out property <string> trans-text: "";        // 译文
+    in-out property <string> status-text: "";       // 状态/错误提示，如「翻译中…」「翻译失败: ...」
+    in-out property <bool> busy: true;              // true = 翻译中
+    in-out property <string> lang-pair: "EN → ZH";  // 右上角语言对标签
+    // 瞬时操作反馈（复制/收藏结果）。必须有独立于 status-text 的位置：
+    // 翻译成功后 busy=false 且 trans-text 非空，译文区被译文占满，
+    // 若把反馈写进 status-text 会被译文挤掉、永远看不见。
+    in-out property <string> notice-text: "";
+
+    // 字号档位（设置页「气泡字号」）：0=紧凑 13/15，1=舒适 15/17（默认），2=大字 17/20
+    in-out property <int> font-preset: 1;
+
+    // ---- 主题令牌（由 ui/mod.rs 在 apply-theme 时同步）----
+    in-out property <color> text: #334155;
+    in-out property <color> text-2: #64748b;
+    in-out property <color> text-3: #94a3b8;
+    in-out property <color> surface: #ffffff;
+    in-out property <color> surface-2: #f8fafc;
+    in-out property <color> border: #e2e8f0;
+    in-out property <color> accent: #0ea5e9;
+    in-out property <color> accent-2: #7dd3fc;
+
+    callback copy-trans();      // 复制译文
+    callback star-word();       // 采集（写入采集队列）
+    callback open-workbench();  // 把原文+译文带回主工作台
+    callback close-bubble();    // 关掉气泡（= 移出屏幕）
+
+    // 最外层：**直角**、铺满整窗、不透明。
+    // 绝不能在这里加 border-radius —— 圆角外的像素由软件渲染器留空 → 最终呈黑色。
+    // 用 1px 描边表示边界即可。
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: surface;
+        border-width: 1px;
+        border-color: border;
+
+        VerticalLayout {
+            width: 100%;
+            height: 100%;
+            spacing: 0;
+
+    // ---- 顶行 32px：标题（左） + 语言对 + 关闭（右）----
+    // ⚠️ 本 layout 内不能用 alignment: center —— 含 horizontal-stretch:1 的 spacer，
+    //    center 会静默禁用 stretch 分配，spacer 塌缩成 0 宽，整组内容挤到中间，
+    //    标题靠左/关闭靠右的设计就失效了。
+    Rectangle {
+        width: 100%;
+        height: 32px;
+        background: surface-2;
+        HorizontalLayout {
+            width: 100%;
+            height: 32px;
+            padding-left: 12px;
+            padding-right: 8px;
+            spacing: 8px;
+            Text {
+                text: "划词翻译";
+                color: text-2;
+                font-size: 12px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: root.lang-pair;
+                color: text-3;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+            TouchArea {
+                width: 24px;
+                height: 24px;
+                clicked => { root.close-bubble(); }
+                Rectangle {
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 6px;
+                    background: transparent;
+                    Text {
+                        text: "✕";
+                        color: text-2;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+    Rectangle { width: 100%; height: 1px; background: border; }
+
+    // ---- 原文区 56px ----
+    Rectangle {
+        width: 100%;
+        height: 56px;
+        background: surface-2;
+        VerticalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 8px;
+            padding-bottom: 8px;
+            Text {
+                text: root.source-text;
+                color: text-2;
+                font-size: root.font-preset == 0 ? 13px : root.font-preset == 2 ? 17px : 15px;
+                wrap: word-wrap;
+                overflow: elide;
+                vertical-stretch: 1;
+            }
+        }
+    }
+    Rectangle { width: 100%; height: 1px; background: border; }
+
+    // ---- 译文区（竖向可伸缩）：busy 显示状态，否则显示译文 ----
+    Rectangle {
+        width: 100%;
+        vertical-stretch: 1;
+        background: surface;
+        VerticalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            if root.busy || root.trans-text == "" : Text {
+                text: root.status-text;
+                color: text-3;
+                font-size: 14px;
+                wrap: word-wrap;
+                overflow: elide;
+                vertical-stretch: 1;
+                vertical-alignment: center;
+            }
+            if !root.busy && root.trans-text != "" : Text {
+                text: root.trans-text;
+                color: text;
+                font-size: root.font-preset == 0 ? 15px : root.font-preset == 2 ? 20px : 17px;
+                wrap: word-wrap;
+                overflow: elide;
+                vertical-stretch: 1;
+            }
+        }
+    }
+    Rectangle { width: 100%; height: 1px; background: border; }
+
+    // ---- 底行 36px：四个操作按钮 ----
+    Rectangle {
+        width: 100%;
+        height: 36px;
+        background: surface-2;
+        HorizontalLayout {
+            width: 100%;
+            height: 36px;
+            padding-left: 10px;
+            padding-right: 10px;
+            spacing: 8px;
+            // ⚠️ 同上：4 个按钮都是 horizontal-stretch:1，alignment: center 会让
+            //    stretch 失效（按钮按文字宽挤在中间且不等宽）。去掉 center 才能等分。
+
+            // 瞬时反馈位
+            if root.notice-text != "" : Text {
+                text: root.notice-text;
+                color: text-2;
+                font-size: 11px;
+                max-width: 64px;
+                overflow: elide;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+            }
+
+            // 主动作：accent-grad 底 + 白字
+            TouchArea {
+                horizontal-stretch: 1;
+                height: 28px;
+                clicked => { root.copy-trans(); }
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 8px;
+                    background: @linear-gradient(135deg, accent 0%, accent-2 100%);
+                    Text {
+                        text: "复制译文";
+                        color: #ffffff;
+                        font-size: 12px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+            // 次要动作：浅面底 + 深字
+            TouchArea {
+                horizontal-stretch: 1;
+                height: 28px;
+                clicked => { root.star-word(); }
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 8px;
+                    background: surface;
+                    border-width: 1px;
+                    border-color: border;
+                    Text {
+                        text: "采集";
+                        color: text-2;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+            TouchArea {
+                horizontal-stretch: 1;
+                height: 28px;
+                clicked => { root.open-workbench(); }
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 8px;
+                    background: surface;
+                    border-width: 1px;
+                    border-color: border;
+                    Text {
+                        // 有 notice 反馈位时每个按钮约 61px，「打开工作台」(≈60px) 会贴边，故用主窗口同款短词
+                        text: "工作台";
+                        color: text-2;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+            TouchArea {
+                horizontal-stretch: 1;
+                height: 28px;
+                clicked => { root.close-bubble(); }
+                Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 8px;
+                    background: surface;
+                    border-width: 1px;
+                    border-color: border;
+                    Text {
+                        text: "关闭";
+                        color: text-2;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}
+    }
+}

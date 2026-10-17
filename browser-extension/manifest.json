@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "WinOCR 划词助手",
+  "version": "0.2.1",
+  "description": "划词翻译 + 一键采集生词 + 本地 OCR（PP-OCRv6，无需主程序）。",
+  "minimum_chrome_version": "109",
+  "permissions": [
+    "nativeMessaging",
+    "contextMenus",
+    "storage",
+    "activeTab",
+    "scripting",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "WinOCR 划词助手"
+  },
+  "commands": {
+    "capture-translate": {
+      "suggested_key": { "default": "Alt+1" },
+      "description": "十字线框选截图并 OCR 翻译"
+    },
+    "cycle-engine": {
+      "suggested_key": { "default": "Alt+Shift+R" },
+      "description": "循环切换翻译引擎（host→sf→mymemory→ollama→browser）"
+    }
+  },
+  "options_page": "options.html",
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "tts.js",
+        "ocr.js",
+        "offscreen.html",
+        "offscreen.js",
+        "models/ocr/*",
+        "vendor/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

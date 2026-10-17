@@ -1,0 +1,72 @@
+{
+  "manifest_version": 3,
+  "name": "WinOCR-Html",
+  "version": "0.8.0",
+  "minimum_chrome_version": "116",
+  "description": "v2 侧栏版：常驻翻译 + 截图 OCR + AI 对话 + 历史/生词/导出（翻译走 SiliconFlow）",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "unlimitedStorage",
+    "clipboardWrite",
+    "activeTab",
+    "tabs",
+    "scripting",
+    "nativeMessaging",
+    "sidePanel",
+    "audioCapture",
+    "microphone",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://api.siliconflow.cn/*",
+    "https://api.mymemory.translated.net/*",
+    "https://*.siliconflow.cn/*",
+    "https://cdnjs.cloudflare.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "action": {
+    "default_title": "WinOCR-Html（点击开/关侧栏）",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "js/common.js",
+        "js/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel_v2.html"
+  },
+  "options_page": "options.html",
+  "commands": {
+    "open-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+W"
+      },
+      "description": "打开 WinOCR 侧栏"
+    },
+    "translate-selection": {
+      "suggested_key": {
+        "default": "Alt+Shift+Z"
+      },
+      "description": "翻译当前选中"
+    }
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArKCmrGzGR4bMNfwV5pSOu0FEaG7vY8ecf0RXTVCYHtONfnaxwjKVzBw/gdrWR8SVgSaeHBOdzcU8x69dsaADfPJt/z9vz0k4cWmX7EBhqqMuMwDRovD3QQDhIA9RYn/OlgQL40UvSYaq0TJbUFKNtEGaf0ZUJ9/HzSa/x+ssgsMx6BZ+anPWo3KbvjypBtp/dDem0XnBneOqWmwqDJ38EhXSO6BSqFcRf1fWepdk32vSk4FrjhsQYcxi+k3G0b2qp9kxD59ymyAGNLh0o2vfylcaJOSrSJxokc3F2e9aiBxjXjfX/0PRPTrTDmOuSgvDFsB4pCWZdkt43YHsyBeJvQIDAQAB"
+}

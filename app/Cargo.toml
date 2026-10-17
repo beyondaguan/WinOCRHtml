@@ -1,0 +1,77 @@
+[package]
+name = "winocr"
+version = "0.1.0"
+edition = "2021"
+# 包内有两个 bin（winocr / winocr-host），指定 cargo run 默认跑主程序
+default-run = "winocr"
+
+[dependencies]
+# 渲染后端：默认软件渲染（无 OpenGL 依赖，远程桌面/虚拟机/无显卡环境均可跑）。
+# 本 UI 很简单，软件渲染性能足够；实测本机 OpenGL 上下文创建失败，故弃用 femtovg。
+# 如需 GPU 加速：加回 "renderer-femtovg"（需 OpenGL 3.3+）或 "renderer-skia"（画质最好，编译慢）。
+slint = { version = "1", default-features = false, features = [
+    "std",
+    "compat-1-2",
+    "accessibility",
+    "backend-winit",
+    "renderer-software",
+] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+env_logger = "0.11"
+# 截图 PNG 编码（仅 png feature，控制体积）
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# PP-OCR ONNX 推理（load-dynamic：运行时加载 assets/onnxruntime.dll，不参与链接）
+ort = { version = "2.0.0-rc.13", features = ["half", "load-dynamic"] }
+ndarray = "0.17"
+# 翻译引擎（在线 HTTP：ollama / mymemory / sf / youdao），移植自 rust-reference/translate.rs。
+# Windows 走系统 schannel，无需 OpenSSL 原生构建。
+# 注：Argos 离线主引擎已接入，但走**旁路子进程**（argos-bridge / winocr-argos.exe，
+# 独立 crt-static /MT 编译），不进本工程依赖图，故主工程零新增重依赖、零 CRT 变更。
+# 见 app/技术.md §4.6、services/translate.rs 的 ArgosBridge。
+reqwest = { version = "0.12", features = ["json", "stream", "blocking"] }
+# 有道智云签名（signType=v3 的 MD5）
+md5 = "0.7"
+futures = "0.3"
+# 文件对话框（open_file / open_url 等）
+rfd = "0.15"
+# DPAPI 加密（libloading 动态加载 crypt32.dll，base64 编码加密 blob）
+libloading = "0.8"
+base64 = "0.22"
+# SQLite 持久化（bundled：自带 SQLite 编译，Windows 免安装；Phase 2 数据层）
+rusqlite = { version = "0.40", features = ["bundled"] }
+
+[build-dependencies]
+slint-build = "1"
+
+# Win32 原生 API（热键/托盘/截图等能力层）
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    # P3-3 划词：剪贴板（DataExchange + Ole 的 CF_UNICODETEXT）+ 全局内存（Memory）
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+# WinRT（系统 OCR：Windows.Media.Ocr；TTS：Windows.Media.SpeechSynthesis）——与 windows-sys 可共存
+windows = { version = "0.58", features = [
+    "Foundation",
+    "Foundation_Collections",
+    "Globalization",
+    "Graphics_Imaging",
+    "Media_Ocr",
+    "Media_SpeechSynthesis",
+    "Storage",
+    "Storage_Streams",
+    "Win32_System_Com",
+] }

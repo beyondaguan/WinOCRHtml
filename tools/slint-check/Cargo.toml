@@ -1,0 +1,16 @@
+[package]
+name = "slint-check"
+version = "0.1.0"
+edition = "2021"
+
+# 独立的 Slint 语法/类型检查工具（不进 winocr 依赖图）
+# 用法：cargo run --manifest-path tools/slint-check/Cargo.toml -- ../../app/src/ui/main_window.slint
+[dependencies]
+slint-build = "1"
+
+[[bin]]
+name = "slint-check"
+path = "main.rs"
+
+# 独立于根 workspace（不进 winocr 依赖图，也不被 workspace 成员校验覆盖）
+[workspace]

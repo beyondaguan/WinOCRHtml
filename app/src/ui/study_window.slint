@@ -1,0 +1,539 @@
+// ============================================================
+// WinOCR · 单词学习窗口（StudyWindow）
+//
+// 2026-10-17：从主窗抽屉迁出为独立窗口（用户拍板：学习界面不按抽屉走）。
+// 2026-10-17 下午：**按《单词学习卡片原型.html》高保真复刻**——
+//   紫色渐变主题（#5B5BFF→#8A5BFF）、圆角 22 卡片、正面大字单词+
+//   发音/慢速+中文释义自测遮罩、背面分节详解（英英释义左紫条框 /
+//   词根彩色块拆解 / 双语例句）、底部三档记忆按钮（✗不认识/△模糊/
+//   ✓认识 → SM-2 0/3/5）+ 复习计划行。
+//   与原型差异：① 3D 翻面动画 → Slint 前后两态切换（无 3D 变换）；
+//   ② blur 遮罩 → ••• 点阵；③ 记忆法/常用搭配/易混词辨析（无数据源）暂缺；
+//   ④ 原型 ☆ 收藏 → ✕ 关闭窗口；⑤ 顶部多一行单词引入输入框（接口要求）。
+//
+// 本文件为**手工维护**（gen_slint_v2.py 只管 main_window.slint），
+// 经 main_window.slint `export { StudyWindow }` 进入 slint-build 代码生成。
+// 视觉为原型专属配色，不跟随主窗主题（复刻优先）。
+// ============================================================
+import { ScrollView, LineEdit } from "std-widgets.slint";
+
+// 队列行结构（2026-10-17 分类选学：Rust 侧生成，行内状态点 + 双击单卡直学）
+export struct QueueRow {
+    word: string,
+    meaning: string,
+    status: int,        // 0 未学 / 1 学习中（未到期）/ 2 待复习
+    status-text: string,
+}
+
+// 摘要页分类胶囊（点击切换"学什么"；激活态紫底白字）
+component CatChip inherits Rectangle {
+    in property <string> label: "";
+    in property <int> count: 0;
+    in property <int> value: 0;
+    in property <int> active-idx: 0;
+    in property <color> dot-color: #6b7280;
+    callback activate(int);
+    height: 32px;
+    horizontal-stretch: 1;
+    border-radius: 16px;
+    background: root.active-idx == root.value ? #5b5bff : #f3f4f8;
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 10px; spacing: 5px;
+        Text { text: "●"; color: root.active-idx == root.value ? #ffffff : root.dot-color; font-size: 0.692rem; vertical-alignment: center; }
+        Text { text: root.label + " " + root.count; color: root.active-idx == root.value ? #ffffff : #4b5563; font-size: 0.846rem; font-weight: 600; vertical-alignment: center; overflow: elide; }
+    }
+    TouchArea { clicked => { root.activate(root.value); } }
+}
+
+export component StudyWindow inherits Window {
+    title: "WinOCR · 单词学习";
+    background: #eef0f6;
+
+    // ── UI 缩放（与主窗同机制：default-font-size = 13px × pct%，2026-10-17 字体过小修复）──
+    // ⚠️ default-font-size 必须由绝对 px 推导，直接写 rem 会自引用成 binding loop（见 main_window.slint:184）
+    in-out property <int> ui-scale-pct: 100;
+    default-font-size: 13px * root.ui-scale-pct / 100;
+
+    // ── 会话状态 ──
+    in-out property <int> phase: 0;   // 0 摘要 / 1 正面 / 2 答案面
+    in-out property <int> due: 0;     // 今日到期词数
+    in-out property <int> stock: 0;   // 生词本总词数
+    in-out property <int> total: 0;   // 本次会话总词数
+    in-out property <int> done: 0;    // 已评分词数
+    in-out property <int> idx: -1;    // 当前词下标（-1 = 无会话）
+    in-out property <[QueueRow]> rows: [];  // 队列预览行（结构化：状态点+双击选学）
+    in-out property <int> cat-idx: 0;      // 分类 0 全部 / 1 待复习 / 2 未学 / 3 学习中
+    in-out property <int> cnt-review: 0;   // 待复习计数（已学且到期）
+    in-out property <int> cnt-new: 0;      // 未学计数（repetitions=0）
+    in-out property <int> cnt-learn: 0;    // 学习中计数（已学未到期）
+
+    // ── 卡片字段 ──
+    in-out property <string> word: "";
+    in-out property <string> phonetic: "";
+    in-out property <string> trans-lines: "";   // ①②… 编号中文释义（\n 分隔）
+    in-out property <string> definition: "";    // 英英释义（词典全文）
+    in-out property <string> dict-label: "英英释义（English Definition）";  // 释义卡标题随词典来源切换（2026-10-17）
+    in-out property <string> core-meaning: "";   // 方案A 渐进披露：核心释义（中文释义首行）
+    in-out property <bool> detail-open: false;   // 方案A：详解区折叠状态（换词重置）
+    in-out property <string> example: "";
+    in-out property <string> example-zh: "";
+    in-out property <string> roots: "";
+    in-out property <string> etymology: "";      // 词源链（拆解块下方的"故事"行）
+    in-out property <[string]> root-chips: [];  // 词根块（roots_text 按 + 拆分）
+    in-out property <string> context: "";
+    in-out property <string> level: "";
+    in-out property <string> project: "";
+    in-out property <bool> cn-hidden: false;    // 自测：中文释义遮罩
+    in-out property <int> reps: 0;
+    in-out property <int> interval: 0;
+
+    // ── 单词引入 ──
+    in-out property <string> intro-input: "";
+    in-out property <string> intro-status: "";
+
+    // ── 批量补全（一键回填存量词条的释义/音标/词根等）──
+    in-out property <bool> backfilling: false;
+    in-out property <string> backfill-status: "";
+
+    // ── 回调（Rust 侧接线）──
+    callback close-requested();
+    callback refresh();        // 打开/评分后刷新队列与角标
+    callback start-session();
+    callback flip();
+    callback grade(int);       // SM-2 quality（不认识0 / 模糊3 / 认识5）
+    callback tts(int);         // 0=单词 1=慢速 2=英英释义 3=例句 4=采集原句
+    callback prev();
+    callback next();
+    callback introduce(string); // 单词引入唯一 UI 入口
+    callback backfill();        // 一键补全生词内容
+    callback set-cat(int);      // 切换分类（Rust 重建队列快照，2026-10-17 分类选学）
+    callback row-click(int);    // 队列行点击（Rust 侧 450ms 内同行两击=双击→单卡直学）
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 10px;
+
+        // ════ 顶栏：进度 + 关闭（原型 topbar）════
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 4px;
+                Text {
+                    height: 18px;
+                    text: root.idx >= 0
+                        ? "第 \{root.idx + 1} / \{root.total} 词 · 已评 \{root.done}"
+                        : "到期 \{root.due} 词 · 生词本共 \{root.stock} 词";
+                    color: #6b7280;
+                    font-size: 0.923rem;
+                    vertical-alignment: center;
+                }
+                Rectangle {
+                    height: 6px;
+                    border-radius: 3px;
+                    background: #e4e6f0;
+                    Rectangle {
+                        x: 0; y: 0; height: 6px; border-radius: 3px;
+                        background: @linear-gradient(90deg, #5b5bff, #8a5bff);
+                        width: root.total > 0 && root.idx >= 0
+                            ? parent.width * root.idx / root.total
+                            : 0px;
+                    }
+                }
+            }
+            TouchArea {
+                width: 36px;
+                clicked => { root.close-requested(); }
+                Rectangle {
+                    height: 36px;
+                    border-radius: 18px;
+                    background: #eef0f7;
+                    Text { text: "✕"; color: #3a3f52; font-size: 0.923rem; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // ════ 单词引入行（接口入口，常驻）════
+        HorizontalLayout {
+            spacing: 8px;
+            LineEdit {
+                horizontal-stretch: 1;
+                placeholder-text: "输入或粘贴单词，回车引入（如 nephritis）";
+                text <=> root.intro-input;
+                font-size: 0.923rem;
+                accepted(text) => { root.introduce(text); }
+            }
+            TouchArea {
+                width: 64px;
+                clicked => { root.introduce(root.intro-input); }
+                Rectangle {
+                    height: 36px;
+                    border-radius: 18px;
+                    background: @linear-gradient(135deg, #5b5bff, #8a5bff);
+                    Text { text: "引入"; color: #ffffff; font-size: 0.846rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // 引入结果反馈（非空才显示）
+        if root.intro-status != "" : Text {
+            height: 18px;
+            text: root.intro-status;
+            color: #6b7280;
+            font-size: 0.769rem;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        // ════ 状态① 摘要卡 ════
+        if root.phase == 0 : VerticalLayout {
+            vertical-stretch: 1;
+            Rectangle {
+                border-radius: 22px;
+                background: #ffffff;
+                drop-shadow-blur: 24px;
+                drop-shadow-color: #1e1e5015;
+                drop-shadow-offset-y: 8px;
+                VerticalLayout {
+                    padding: 24px;
+                    spacing: 10px;
+                    VerticalLayout { vertical-stretch: 1; alignment: center; spacing: 8px;
+                        HorizontalLayout { spacing: 8px;
+                            CatChip {
+                                label: "全部"; count: root.cnt-review + root.cnt-new; value: 0; dot-color: #5b5bff;
+                                active-idx: root.cat-idx;
+                                activate(i) => { root.cat-idx = i; root.set-cat(i); }
+                            }
+                            CatChip {
+                                label: "待复习"; count: root.cnt-review; value: 1; dot-color: #f43f5e;
+                                active-idx: root.cat-idx;
+                                activate(i) => { root.cat-idx = i; root.set-cat(i); }
+                            }
+                            CatChip {
+                                label: "未学"; count: root.cnt-new; value: 2; dot-color: #10b981;
+                                active-idx: root.cat-idx;
+                                activate(i) => { root.cat-idx = i; root.set-cat(i); }
+                            }
+                            CatChip {
+                                label: "学习中"; count: root.cnt-learn; value: 3; dot-color: #f59e0b;
+                                active-idx: root.cat-idx;
+                                activate(i) => { root.cat-idx = i; root.set-cat(i); }
+                            }
+                        }
+                        Text { text: "\{root.rows.length}"; color: #5b5bff; font-size: 3.2rem; font-weight: 800; horizontal-alignment: center; }
+                        Text { text: root.rows.length > 0 ? "个单词在当前分类 · 双击下方单词可直接学" : "当前分类暂无可学单词 · 顶部粘贴可引入新词"; color: #6b7280; font-size: 1rem; horizontal-alignment: center; }
+                        Text { text: "生词本共 \{root.stock} 词 · 顶部粘贴单词可随时引入"; color: #a0a5b5; font-size: 0.769rem; horizontal-alignment: center; }
+                        TouchArea {
+                            width: 220px; height: 46px;
+                            enabled: root.rows.length > 0;
+                            clicked => { root.start-session(); }
+                            Rectangle {
+                                height: 46px;
+                                border-radius: 23px;
+                                background: root.rows.length > 0 ? @linear-gradient(135deg, #5b5bff, #8a5bff) : #eef0f7;
+                                Text { text: "▶ 开始学习"; color: root.rows.length > 0 ? #ffffff : #a0a5b5; font-size: 1.077rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                        // 一键补全（存量词条 92%+ 内容为空 → 本地三件套 + Argos 批量回填）
+                        TouchArea {
+                            width: 300px; height: 38px;
+                            enabled: !root.backfilling;
+                            clicked => { root.backfill(); }
+                            Rectangle {
+                                height: 38px;
+                                border-radius: 19px;
+                                background: root.backfilling ? #eef0f7 : #eef0ff;
+                                border-width: 1px;
+                                border-color: #d6d9f8;
+                                Text { text: root.backfilling ? "补全中…" : "🛠 补全生词内容（释义/音标/词根）"; color: #5b5bff; font-size: 0.846rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                        }
+                        if root.backfill-status != "" : Text {
+                            text: root.backfill-status;
+                            color: #6b7280;
+                            font-size: 0.769rem;
+                            horizontal-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                    Rectangle { height: 1px; background: #e5e7ef; }
+                    Text {
+                        text: root.cat-idx == 0 ? "队列 · 待复习优先 + 未学"
+                            : (root.cat-idx == 1 ? "队列 · 待复习"
+                            : (root.cat-idx == 2 ? "队列 · 未学" : "队列 · 学习中（未到期提前学）"));
+                        color: #1f2330; font-size: 0.923rem; font-weight: 700; vertical-alignment: center;
+                    }
+                    ScrollView {
+                        height: root.rows.length * 38px > 220px ? 220px : root.rows.length * 38px;
+                        VerticalLayout { spacing: 4px;
+                            for r[idx] in root.rows : Rectangle {
+                                height: 34px;
+                                border-radius: 8px;
+                                background: #f3f4f8;
+                                TouchArea {
+                                    clicked => { root.row-click(idx); }
+                                    HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 8px;
+                                        Text { text: "●"; color: r.status == 2 ? #f43f5e : (r.status == 0 ? #10b981 : #f59e0b); font-size: 0.692rem; vertical-alignment: center; }
+                                        Text { text: r.word; color: #1f2330; font-size: 0.846rem; font-weight: 600; vertical-alignment: center; width: 118px; overflow: elide; }
+                                        Text { text: r.meaning; color: #6b7280; font-size: 0.846rem; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                                        Text { text: r.status-text; color: #a0a5b5; font-size: 0.769rem; vertical-alignment: center; }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ════ 状态② 正面（原型 front face）════
+        if root.phase == 1 : VerticalLayout {
+            vertical-stretch: 1;
+            TouchArea {
+                clicked => { root.flip(); }
+                Rectangle {
+                    border-radius: 22px;
+                    background: #ffffff;
+                    drop-shadow-blur: 24px;
+                    drop-shadow-color: #1e1e5015;
+                    drop-shadow-offset-y: 8px;
+                    VerticalLayout {
+                        padding-top: 22px; padding-bottom: 22px; padding-left: 20px; padding-right: 20px;
+                        spacing: 0;
+                        // 档位标签（原型 word-tag）
+                        HorizontalLayout { alignment: start;
+                            Rectangle {
+                                height: 22px;
+                                min-width: 60px;
+                                border-radius: 11px;
+                                background: #eef0ff;
+                                HorizontalLayout { padding-left: 10px; padding-right: 10px;
+                                    Text { text: (root.level != "" ? root.level : "未分级") + (root.project != "" ? " · " + root.project : ""); color: #5b5bff; font-size: 0.769rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+                                }
+                            }
+                        }
+                        // 中央主体
+                        VerticalLayout {
+                            vertical-stretch: 1;
+                            alignment: center;
+                            spacing: 10px;
+                            Text { text: root.word; color: #1f2330; font-size: 3.4rem; font-weight: 800; horizontal-alignment: center; overflow: elide; }
+                            Text { text: root.phonetic != "" ? "/\{root.phonetic}/" : "（暂无音标）"; color: #6b7280; font-size: 1.077rem; horizontal-alignment: center; }
+                            HorizontalLayout { alignment: center; spacing: 10px;
+                                TouchArea { width: 96px; height: 34px; clicked => { root.tts(0); }
+                                    Rectangle { height: 34px; border-radius: 17px; background: @linear-gradient(135deg, #5b5bff, #8a5bff);
+                                        Text { text: "🔊 发音"; color: #ffffff; font-size: 0.846rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                                TouchArea { width: 96px; height: 34px; clicked => { root.tts(1); }
+                                    Rectangle { height: 34px; border-radius: 17px; background: #eef0f7;
+                                        Text { text: "🐢 慢速"; color: #3a3f52; font-size: 0.846rem; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                }
+                            }
+                            // 中文释义（自测遮罩，原型 cn-block）
+                            if root.trans-lines != "" : VerticalLayout { spacing: 4px;
+                                HorizontalLayout { alignment: center; spacing: 8px;
+                                    Text { text: "中文释义"; color: #6b7280; font-size: 0.769rem; vertical-alignment: center; }
+                                    TouchArea { width: 68px; height: 20px; clicked => { root.cn-hidden = !root.cn-hidden; }
+                                        Rectangle { height: 20px; border-radius: 10px; background: #ffffff; border-width: 1px; border-color: #e5e7ef;
+                                            Text { text: root.cn-hidden ? "显示" : "隐藏"; color: #6b7280; font-size: 0.692rem; horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: root.cn-hidden ? "•  •  •  •  •  •" : root.trans-lines;
+                                    color: root.cn-hidden ? #9aa0b0 : #1f2330;
+                                    font-size: 1.308rem;
+                                    font-weight: 600;
+                                    horizontal-alignment: center;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+                        // 翻面提示（原型 flip-hint）
+                        Text { text: "👆 点击卡片查看详解"; color: #a0a5b5; font-size: 0.769rem; horizontal-alignment: center; height: 24px; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+
+        // ════ 状态③ 答案面（原型 back face，分节详解）════
+        if root.phase == 2 : VerticalLayout {
+            vertical-stretch: 1;
+            Rectangle {
+                border-radius: 22px;
+                background: #ffffff;
+                drop-shadow-blur: 24px;
+                drop-shadow-color: #1e1e5015;
+                drop-shadow-offset-y: 8px;
+                ScrollView {
+                        VerticalLayout {
+                            padding: 20px;
+                            spacing: 16px;
+                            // ↩ 翻回正面（2026-10-17 用户反馈：只有前进没有返回）
+                            HorizontalLayout { alignment: start;
+                                TouchArea {
+                                    clicked => { root.flip(); }
+                                    Rectangle {
+                                        border-radius: 999px;
+                                        background: #eef0ff;
+                                        border-width: 1px;
+                                        border-color: #d6d9f8;
+                                        HorizontalLayout { padding-left: 14px; padding-right: 14px; padding-top: 6px; padding-bottom: 6px; spacing: 6px;
+                                            Text { text: "↩"; color: #5b5bff; font-size: 0.923rem; vertical-alignment: center; }
+                                            Text { text: "正面"; color: #5b5bff; font-size: 0.923rem; font-weight: 700; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                            }
+                            // 🧠 核心释义（方案A 渐进披露 2026-10-17：先自测回忆，翻面只给核心释义）
+                            if root.core-meaning != "" : VerticalLayout { spacing: 6px;
+                                Text { text: "🧠 核心释义"; color: #6b7280; font-size: 0.923rem; font-weight: 700; vertical-alignment: center; }
+                                Rectangle {
+                                    border-radius: 8px;
+                                    background: #f7f8ff;
+                                    HorizontalLayout { spacing: 0;
+                                        Rectangle { width: 3px; background: #5b5bff; }
+                                        VerticalLayout { padding-top: 10px; padding-bottom: 10px; padding-left: 12px; padding-right: 12px;
+                                            Text { text: root.core-meaning; color: #1f2330; font-size: 1.154rem; font-weight: 600; wrap: word-wrap; }
+                                        }
+                                    }
+                                }
+                            }
+                            // ▾/▴ 展开详解开关（五段详解默认折叠，保护主动回忆）
+                            HorizontalLayout { alignment: start;
+                                TouchArea {
+                                    clicked => { root.detail-open = !root.detail-open; }
+                                    Rectangle {
+                                        border-radius: 999px;
+                                        background: #eef0ff;
+                                        border-width: 1px;
+                                        border-color: #d6d9f8;
+                                        HorizontalLayout { padding-left: 14px; padding-right: 14px; padding-top: 6px; padding-bottom: 6px; spacing: 6px;
+                                            Text { text: root.detail-open ? "▴ 收起详解" : "▾ 展开详解（英英 / 词根 / 例句）"; color: #5b5bff; font-size: 0.923rem; font-weight: 700; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                            }
+                            // ═══ 详解区（默认折叠）═══
+                            if root.detail-open : VerticalLayout { spacing: 16px;
+                            // 📖 英英释义（原型 en-def：左紫条高亮框，点击整句朗读）
+                        if root.definition != "" : VerticalLayout { spacing: 6px;
+                            Text { text: "📖 " + root.dict-label; color: #6b7280; font-size: 0.923rem; font-weight: 700; vertical-alignment: center; }
+                            TouchArea { clicked => { root.tts(2); }
+                                Rectangle {
+                                    border-radius: 8px;
+                                    background: #f7f8ff;
+                                    HorizontalLayout { spacing: 0;
+                                        Rectangle { width: 3px; background: #5b5bff; }
+                                        VerticalLayout { padding-top: 10px; padding-bottom: 10px; padding-left: 12px; padding-right: 12px;
+                                            Text { text: root.definition; color: #2a2f45; font-size: 1rem; wrap: word-wrap; }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // 🇨🇳 英汉释义
+                        if root.trans-lines != "" : VerticalLayout { spacing: 6px;
+                            Text { text: "🇨🇳 英汉释义"; color: #6b7280; font-size: 0.923rem; font-weight: 700; vertical-alignment: center; }
+                            Text { text: root.trans-lines; color: #1f2330; font-size: 1.077rem; font-weight: 600; wrap: word-wrap; }
+                        }
+                        // 🌱 词根词缀拆解（原型 root-blocks 彩色块）
+                        if root.root-chips.length > 0 || root.etymology != "" : VerticalLayout { spacing: 6px;
+                            Text { text: "🌱 词根词缀拆解"; color: #6b7280; font-size: 0.923rem; font-weight: 700; vertical-alignment: center; }
+                            if root.root-chips.length > 0 : HorizontalLayout { alignment: start; spacing: 6px;
+                                for chip[idx] in root.root-chips : HorizontalLayout { spacing: 6px;
+                                    if idx > 0 : Text { text: "＋"; color: #b0b5c5; font-weight: 700; vertical-alignment: center; }
+                                    Rectangle {
+                                        height: 26px;
+                                        border-radius: 8px;
+                                        background: idx == 0 ? #3b82f6 : (idx == root.root-chips.length - 1 ? #5b5bff : #8b5cf6);
+                                        HorizontalLayout { padding-left: 10px; padding-right: 10px;
+                                            Text { text: chip; color: #ffffff; font-size: 0.923rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                                        }
+                                    }
+                                }
+                            }
+                            if root.etymology != "" : Text { text: root.etymology; color: #4b5563; font-size: 0.923rem; wrap: word-wrap; }
+                        }
+                        // 📝 双语例句（原型 example 框，点击发音）
+                        if root.example != "" : VerticalLayout { spacing: 6px;
+                            Text { text: "📝 双语例句（点击可发音）"; color: #6b7280; font-size: 0.923rem; font-weight: 700; vertical-alignment: center; }
+                            TouchArea { clicked => { root.tts(3); }
+                                Rectangle {
+                                    border-radius: 10px;
+                                    background: #f8f9fb;
+                                    border-width: 1px;
+                                    border-color: #e5e7ef;
+                                    VerticalLayout { padding-top: 10px; padding-bottom: 10px; padding-left: 12px; padding-right: 12px; spacing: 3px;
+                                        Text { text: root.example; color: #1f2330; font-size: 1rem; font-weight: 600; wrap: word-wrap; }
+                                        if root.example-zh != "" : Text { text: root.example-zh; color: #6b7280; font-size: 0.923rem; wrap: word-wrap; }
+                                    }
+                                }
+                            }
+                        }
+                        // 📎 采集原句（本项目的 context，点击发音）
+                        if root.context != "" : VerticalLayout { spacing: 6px;
+                            Text { text: "📎 采集原句（点击可发音）"; color: #6b7280; font-size: 0.923rem; font-weight: 700; vertical-alignment: center; }
+                            TouchArea { clicked => { root.tts(4); }
+                                Rectangle {
+                                    border-radius: 10px;
+                                    background: #f8f9fb;
+                                    border-width: 1px;
+                                    border-color: #e5e7ef;
+                                    VerticalLayout { padding-top: 10px; padding-bottom: 10px; padding-left: 12px; padding-right: 12px;
+                                        Text { text: root.context; color: #4b5563; font-size: 0.923rem; wrap: word-wrap; }
+                                    }
+                                }
+                            }
+                        }
+                        } // if detail-open 详解区闭合
+                    }
+                }
+            }
+        }
+
+        // ════ 底部（原型 bottom：三档记忆 + 复习计划行）════
+        if root.phase > 0 : VerticalLayout {
+            height: 96px;
+            spacing: 10px;
+            HorizontalLayout { spacing: 8px;
+                TouchArea { horizontal-stretch: 1; clicked => { root.grade(0); }
+                    Rectangle { height: 42px; border-radius: 14px; background: #f43f5e;
+                        Text { text: "✗ 不认识"; color: #ffffff; font-size: 1rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+                TouchArea { horizontal-stretch: 1; clicked => { root.grade(3); }
+                    Rectangle { height: 42px; border-radius: 14px; background: #f59e0b;
+                        Text { text: "△ 模糊"; color: #ffffff; font-size: 1rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+                TouchArea { horizontal-stretch: 1; clicked => { root.grade(5); }
+                    Rectangle { height: 42px; border-radius: 14px; background: #10b981;
+                        Text { text: "✓ 认识"; color: #ffffff; font-size: 1rem; font-weight: 700; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+            }
+            HorizontalLayout { spacing: 8px;
+                TouchArea { width: 36px; enabled: root.idx > 0; clicked => { root.prev(); }
+                    Rectangle { height: 36px; border-radius: 18px; background: #eef0f7;
+                        Text { text: "◀"; color: root.idx > 0 ? #3a3f52 : #c3c7d4; font-size: 0.923rem; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+                HorizontalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 4px;
+                    Text { text: "复习计划："; color: #6b7280; font-size: 0.769rem; vertical-alignment: center; }
+                    Text { text: "第 \{root.reps} 次 · 间隔 \{root.interval} 天"; color: #5b5bff; font-size: 0.769rem; font-weight: 700; vertical-alignment: center; }
+                }
+                TouchArea { width: 36px; enabled: root.idx + 1 < root.total; clicked => { root.next(); }
+                    Rectangle { height: 36px; border-radius: 18px; background: #eef0f7;
+                        Text { text: "▶"; color: root.idx + 1 < root.total ? #3a3f52 : #c3c7d4; font-size: 0.923rem; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+    }
+}

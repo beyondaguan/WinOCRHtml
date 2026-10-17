@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { font: 13px/1.7 system-ui, "Segoe UI", sans-serif; max-width: 560px; margin: 16px; color: #222; }
+    h2 { font-size: 15px; }
+    h3 { font-size: 13px; color: #1677ff; }
+    label { display: inline-block; min-width: 130px; color: #555; }
+    input, select { font: 12px system-ui; padding: 4px 6px; border: 0.5px solid #d9d9d9; border-radius: 6px; }
+    button { font: 12px system-ui; padding: 6px 14px; border: 0.5px solid #1677ff; border-radius: 6px; background: #1677ff; color: #fff; cursor: pointer; }
+    button.ghost { background: #fff; color: #1677ff; }
+    .hint { color: #888; font-size: 12px; margin: 4px 0 8px 130px; }
+    #msg { color: #1677ff; margin-left: 10px; display: inline-block; max-width: 330px; vertical-align: middle; }
+    #msg.err { color: #c0392b; }
+    #nativeMsg { color: #1677ff; margin-left: 10px; display: inline-block; max-width: 330px; vertical-align: middle; }
+    #nativeMsg.err { color: #c0392b; }
+    code { font-family: Consolas, monospace; font-size: 11px; background: #f2f4f7; padding: 0 3px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h2>WinOCR-Html 设置</h2>
+
+  <label>翻译引擎</label>
+  <select id="engine">
+    <option value="sf">SiliconFlow（自带 key · 质量好）</option>
+    <option value="mymemory">MyMemory（免费 · 免 key · 国内可直连）</option>
+    <option value="ollama">本地 Ollama（离线 · 隐私 · 零 key）</option>
+    <option value="browser">浏览器内置（零 key · 离线，需 Edge/Chrome 138+）</option>
+  </select>
+  <div class="hint" style="margin-left:0">
+    <b>SiliconFlow</b>：<code>Qwen/Qwen3-8B</code>，需填自己的 key；医疗/术语表现好（推荐）。<br>
+    <b>MyMemory</b>：<b>免 key、国内可直连</b>，匿名约 5000 字符/天（填邮箱约 50000）；质量中等，零门槛兜底。<br>
+    <b>本地 Ollama</b>：完全离线、数据不出本机、零 API 费用；需自行安装运行 <a href="https://ollama.com" target="_blank">Ollama</a> 并拉取模型（如 <code>ollama pull qwen2.5:7b</code>）。<br>
+    <b>浏览器内置</b>：需内核 138+，但语言包在 Google CDN 上，国内基本拉不动。<br>
+    <span style="color:#999">（Google 非官方接口国内超时不可达；有道老接口 <code>/translate</code> 已失效返回网页 —— 两者都不必考虑。）</span>
+  </div>
+
+  <label>Ollama 服务地址</label><input id="ollamaUrl" size="30" placeholder="http://localhost:11434" />
+  <label>Ollama 模型</label>
+  <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <select id="ollamaModel"><option value="">（先点右侧检测）</option></select>
+    <button id="ollamaDetect" type="button">检测本地模型</button>
+  </div>
+  <div class="hint" style="margin-left:0;margin-bottom:6px">需先启动 Ollama（<code>ollama serve</code> 或桌面端），再点「检测本地模型」拉取模型列表。</div>
+
+  <label>MyMemory 邮箱</label><input id="mymemoryEmail" size="30" placeholder="可选：填了额度从 5000 → 50000" />
+  <div class="hint" style="margin-left:0">仅 MyMemory 用：填一个邮箱（作为 <code>de=</code> 参数随请求发出），把每日免费额度从约 5000 提到约 50000 字符。</div>
+
+  <label>SiliconFlow Key</label><input id="sfKey" type="password" size="38" /><br>
+  <label>SF Base URL</label><input id="sfUrl" size="38" /><br>
+  <label>SF 文本模型</label><select id="sfModel"></select><br>
+
+  <label>OCR 引擎</label>
+  <select id="ocrEngine">
+    <option value="local">本地 PP-OCRv6（离线 · 零 key · ~1.5s）— 截图首选</option>
+    <option value="sf">云端 SiliconFlow 视觉模型（慢，适合照片/手写/复杂版面）</option>
+  </select><br>
+  <label>本地 OCR 档位</label>
+  <select id="localOcrTier">
+    <option value="tiny">tiny（6.6MB，已随项目内置 · ~1.5s）</option>
+    <option value="medium">medium（需另放 133MB 模型 · 更准更慢）</option>
+  </select><br>
+  <label>云端 OCR 模型</label><select id="sfOcrModel"></select><br>
+  <div class="hint" style="margin-left:0">
+    ⚠️ 云端模型 id 必须写<b>全称</b>（含 <code>PaddlePaddle/</code>、<code>deepseek-ai/</code> 前缀）；
+    只写 <code>PaddleOCR-VL-1.5</code> 会被服务端拒绝：<code>20012 Model does not exist</code>。<br>
+    <b>实测（2026-09-20，同一张截图）</b>：
+    <table style="border-collapse:collapse;font-size:11.5px;margin-top:4px">
+      <tr style="color:#555"><td style="padding:1px 8px 1px 0">方案</td><td style="padding:1px 8px 1px 0">耗时</td><td>结果</td></tr>
+      <tr><td style="padding:1px 8px 1px 0"><b>本地 PP-OCRv6 tiny</b></td><td style="padding:1px 8px 1px 0"><b>1.2–2.2s</b></td><td>置信度 0.98，文字正确 ← <b>推荐</b></td></tr>
+      <tr><td style="padding:1px 8px 1px 0">deepseek-ai/DeepSeek-OCR</td><td style="padding:1px 8px 1px 0">0.9s(热)/30s(冷)</td><td>不稳定，会整段退化成无关文字</td></tr>
+      <tr><td style="padding:1px 8px 1px 0">PaddlePaddle/PaddleOCR-VL-1.5</td><td style="padding:1px 8px 1px 0">103–121s</td><td>文字对，但太慢 + 前导幻觉</td></tr>
+      <tr><td style="padding:1px 8px 1px 0">Qwen/Qwen3-8B（翻译）</td><td style="padding:1px 8px 1px 0">2.5s</td><td>正确 ← 翻译推荐</td></tr>
+      <tr><td style="padding:1px 8px 1px 0">DeepSeek-R1-0528-Qwen3-8B</td><td style="padding:1px 8px 1px 0">9.5–12.3s</td><td>正确，但思考占 400+ 字，慢 4 倍</td></tr>
+    </table>
+  </div>
+  <label>源语言</label><input id="srcLang" size="6" />
+  <label>目标语言</label><input id="tgtLang" size="6" /><br>
+
+  <label>译文显示</label>
+  <select id="displayMode">
+    <option value="inline">原地替换原文（译文直接写回原位，点译文可切回原文）</option>
+    <option value="bar">原位常驻翻译栏（可拖动，不自动消失）</option>
+    <option value="bubble">临时气泡（点别处 / 滚动即消失）</option>
+  </select>
+  <div class="hint">「原地替换」：划词后点气泡里的「译」，<b>译文直接替换页面原文</b>，带淡蓝底 + 虚线下划线；
+    点该段可在「译文 ↔ 原文」间切换，气泡里的「还原」可一次性恢复全部。切换后刷新页面生效。</div>
+
+  <h3>截图翻译（Alt+Q 原生宿主）</h3>
+  <label>截图翻译引擎</label>
+  <select id="translateEngine">
+    <option value="sf">SiliconFlow（需 sfKey · 医疗术语好 · 推荐）</option>
+    <option value="mymemory">MyMemory（免费免 key · 国内可直连）</option>
+    <option value="none">仅 OCR，不翻译</option>
+  </select>
+  <div class="hint" style="margin-left:0">
+    只作用于 <b>Alt+Q 截图 OCR 之后</b>的翻译；网页划词翻译用页面顶部的「翻译引擎」下拉（两份开关互不影响）。
+    各引擎复用上方同一组输入框（SF Key、MyMemory 邮箱）。<br>
+    扩展联动（NM 模式）下点「保存」会即时同步给宿主并落盘到 <code>winocr_config.json</code>；
+    独立模式（run_host.bat）直接读该文件，手改后重启宿主生效。
+  </div>
+
+  <h3>截图热键（原生宿主）</h3>
+  <label>截图热键</label>
+  <input id="hotkey" size="26" readonly placeholder="点这里，然后直接按组合键" />
+  <button id="hotkeyClear" class="ghost">清空</button><span id="hotkeyMsg"></span><br>
+  <label>退出热键</label>
+  <input id="quitHotkey" size="26" readonly placeholder="点这里，然后直接按组合键" />
+  <button id="quitHotkeyClear" class="ghost">清空</button><span id="quitHotkeyMsg"></span>
+  <div class="hint" style="margin-left:0">
+    <b>自由录入</b>：点上面的输入框 → <b>直接按下想要的组合键</b>即可（例如 <code>Ctrl+Alt+M</code>、<code>Alt+Shift+F9</code>）。
+    支持 Ctrl / Alt / Shift / Win + 字母 / 数字 / F1–F24。录好后点「保存」，扩展会把热键同步给原生宿主并<b>即时重新注册</b>
+    （宿主没运行则只存进配置，下次启动生效）。<br>
+    <b>退出热键</b>（默认 <code>Ctrl+Alt+Q</code>）：一按就<b>关掉当前持有热键的宿主</b>；
+    允许同时运行多个宿主（热键由最旧的实例持有），连按可<b>逐个关闭</b>直到全关；
+    也可以双击 <code>stop_host.bat</code> 一次全部关掉。
+    注意 <b>不能用裸 Esc</b> —— 全局注册裸 Esc 会劫持全系统的 Esc（对话框/游戏/浏览器全都失效），所以退出键必须带修饰键。<br>
+    ⚠️ 默认 <code>Ctrl+Shift+M</code> 与 <b>WinOCR 3.4 的蒙版翻译</b>冲突，建议改成 <code>Ctrl+Alt+M</code>。<br>
+    扩展自身的快捷键（Alt+Shift+W / Alt+Shift+Z）Chrome 不允许扩展修改，需到 <code>edge://extensions/shortcuts</code> 手动改。
+  </div>
+
+  <div class="hint" style="margin-left:0">「常驻翻译栏」在原文位置显示 原文 + 译文，可拖动、点 × 关闭。</div>
+
+  <h3>外部截图（原生宿主 · 可选）</h3>
+  <label><input type="checkbox" id="nativeHost" /> 连接原生宿主 com.winocr_host</label><br>
+  <div class="hint" style="margin-left:0">仅当你要把「任意软件截图 OCR」的记录<b>回传到扩展历史</b>时才需要，
+    且需先按 README 第二节运行 <code>install_host.bat</code> 注册宿主。<b>纯浏览器使用请保持关闭</b> ——
+    开启但未注册时会持续报 <code>Specified native messaging host not found</code>。</div>
+  <div class="hint" style="margin-left:0"><b>这里和本地文件是两份配置，互不同步。</b>
+    桌面热键截图（独立模式）读的是 <code>native_host/winocr_config.json</code>：
+    <b>在扩展里连上宿主 ≠ 本地配置里有 key</b>。两边都填过才两边都能用，
+    或者点「从本地配置导入」把本地那份读过来。</div>
+  <p><button id="nativeTest" class="ghost">检测宿主连接</button>
+     <button id="nativeImport" class="ghost">从本地配置导入</button>
+     <span id="nativeMsg"></span></p>
+  <div class="hint" style="margin-left:0">本地配置文件（独立模式 / 桌面热键截图读的就是<b>这一份</b>）：
+    <code id="cfgPath">native_host\winocr_config.json</code>
+    <button id="nativeOpenCfg" class="ghost" style="margin-left:8px;padding:1px 7px;font-size:12px">打开所在文件夹</button>
+  </div>
+
+  <h3>导出目标</h3>
+  <label><input type="checkbox" id="t_folder" /> 文件夹（File System Access）</label><br>
+  <label><input type="checkbox" id="t_zip" /> ZIP 归档</label><br>
+  <label><input type="checkbox" id="t_obsidian" /> Obsidian（Local REST）</label><br>
+  <label>Obsidian URL</label><input id="obsidianUrl" size="28" />
+  <label>Obsidian Key</label><input id="obsidianKey" type="password" size="18" /><br>
+  <label><input type="checkbox" id="t_lexiang" /> 乐享</label><br>
+  <label>乐享端点</label><input id="lexiangEndpoint" size="36" /><br>
+  <label>乐享 Token</label><input id="lexiangToken" type="password" size="28" /><br>
+
+  <p><button id="save">保存</button> <button id="test" class="ghost">测试所选引擎</button> <button id="testOcr" class="ghost">测试 OCR</button> <button id="dlModel" class="ghost">下载语言包</button><span id="msg"></span></p>
+  <div class="hint" style="margin-left:0">「测试所选引擎」严格按上面的「翻译引擎」实测：选 SiliconFlow 就真调一次 SF；
+    选浏览器内置则读取 <code>Translator.availability()</code> 并如实报告
+    （<code>available</code>=可用 / <code>downloadable</code>=需先下语言包 / <code>unavailable</code>=该语言对不支持）。
+    「测试 OCR」会现画一张带中英文字的图，按「OCR 引擎」实测一次（本地走原生宿主、云端走 SF），
+    并报出耗时 —— 用来一眼确认 OCR 通道通不通。</div>
+
+  <script src="js/common.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

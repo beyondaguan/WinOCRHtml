@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>WinOCR 生词本</title>
+  <style>
+    :root {
+      --brand: #6366f0; --brand-hover: #4f46e5;
+      --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0;
+      --text: #1e293b; --text-2: #475569; --text-3: #94a3b8;
+      --ok: #10b981; --err: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+      background: var(--bg); color: var(--text); font-size: 13px;
+    }
+    .header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 20px; background: var(--card);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .header .logo {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: linear-gradient(135deg, #6366f0, #8b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 14px; font-weight: 700;
+    }
+    .header h1 { font-size: 16px; font-weight: 600; }
+    .header .count { font-size: 12px; color: var(--text-3); }
+    .toolbar {
+      display: flex; gap: 8px; align-items: center;
+      padding: 10px 20px; background: var(--card);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 57px; z-index: 10;
+    }
+    .toolbar input[type="search"] {
+      flex: 1; max-width: 280px;
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 10px; font-size: 13px; outline: none; font-family: inherit;
+    }
+    .toolbar input[type="search"]:focus { border-color: var(--brand); }
+    .toolbar select {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 6px 8px; font-size: 12px; background: #fff; color: var(--text);
+    }
+    .toolbar button {
+      border: none; border-radius: 8px; padding: 6px 12px;
+      font-size: 12px; cursor: pointer; background: #f1f5f9; color: var(--text-2);
+    }
+    .toolbar button:hover { background: #e2e8f0; }
+    .list { padding: 12px 20px 40px; max-width: 980px; }
+    .item {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 8px;
+      display: grid; grid-template-columns: 170px 1fr 110px; gap: 12px; align-items: start;
+    }
+    .item .word { font-size: 15px; font-weight: 700; color: var(--text); word-break: break-word; }
+    .item .word .lv {
+      font-size: 10px; font-weight: 600; color: #4f46e5; background: #eef2ff;
+      border: 1px solid #c7d2fe; border-radius: 999px; padding: 1px 7px;
+      margin-left: 8px; vertical-align: 2px;
+    }
+    .item .mid { color: var(--text-2); font-size: 12px; word-break: break-word; }
+    .item .mid .ctx { color: var(--text-3); margin-top: 3px; font-size: 11px; }
+    .item .mid .ctx::before { content: "出处："; }
+    .item .meta { text-align: right; font-size: 11px; color: var(--text-3); line-height: 1.7; }
+    .item .meta .proj { color: var(--text-2); font-weight: 600; }
+    .empty { text-align: center; color: var(--text-3); padding: 60px 0; font-size: 14px; }
+    .empty .sub { font-size: 12px; margin-top: 8px; }
+    .err-box {
+      margin: 12px 20px; padding: 10px 14px; border-radius: 8px;
+      background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+      font-size: 12px; display: none;
+    }
+    .err-box.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">W</div>
+    <h1>生词本</h1>
+    <span class="count" id="count">桌面端只读镜像</span>
+  </div>
+  <div class="toolbar">
+    <input type="search" id="q" placeholder="搜索单词 / 释义 / 出处…" />
+    <select id="levelSel" title="按级别筛选">
+      <option value="">全部级别</option>
+    </select>
+    <select id="projSel" title="按项目筛选">
+      <option value="">全部项目</option>
+    </select>
+    <button id="refreshBtn">刷新</button>
+  </div>
+  <div class="err-box" id="errBox"></div>
+  <div class="list" id="list"><div class="empty">加载中…</div></div>
+
+  <script src="words.js"></script>
+</body>
+</html>

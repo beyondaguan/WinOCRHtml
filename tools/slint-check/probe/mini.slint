@@ -1,0 +1,48 @@
+// 最小复现：验证 inherits Rectangle 的组件在布局中的尺寸行为。
+
+// 被测组件：继承 Rectangle + width/height: 100%
+component PaneA inherits Rectangle {
+    in-out property <string> t: "";
+    width: 100%;
+    background: #ffffff;
+    border-width: 1px;
+    border-color: #e2e8f0;
+    VerticalLayout {
+        Rectangle { height: 20px; background: #eef2ff; }
+        Text { text: root.t; }
+    }
+}
+
+// 对照组：不继承，纯 component
+component PaneB inherits Rectangle {
+    in-out property <string> t: "";
+    background: #ffffff;
+    border-width: 1px;
+    border-color: #cbd5e1;
+    VerticalLayout {
+        Rectangle { height: 20px; background: #f1f5f9; }
+        Text { text: root.t; }
+    }
+}
+
+export component MiniProbe inherits Window {
+    width: 400px;
+    height: 200px;
+    background: #f8fafc;
+    in-out property <string> mode: "h";
+
+    // 测试 1：两个 Pane 在 HorizontalLayout 中
+    if root.mode == "h" : HorizontalLayout {
+        spacing: 0;
+        PaneA { t: "A-in-H"; horizontal-stretch: 1; }
+        Rectangle { width: 1px; background: #ef4444; }
+        PaneB { t: "B-in-H"; horizontal-stretch: 1; }
+    }
+    // 测试 2：两个 Pane 在 VerticalLayout 中
+    if root.mode == "v" : VerticalLayout {
+        spacing: 0;
+        PaneA { t: "A-in-V"; vertical-stretch: 1; }
+        Rectangle { height: 1px; background: #ef4444; }
+        PaneB { t: "B-in-V"; vertical-stretch: 1; }
+    }
+}
