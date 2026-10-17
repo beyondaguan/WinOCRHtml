@@ -150,8 +150,12 @@ impl ArgosBridge {
     fn spawn() -> anyhow::Result<BridgeInner> {
         let exe = Self::exe_path();
         let assets = Self::assets_dir();
+        // CREATE_NO_WINDOW：主程序为 GUI 子系统（无控制台），桥接子进程是 console
+        // 子系统，不加此标志每次翻译都会闪黑控制台窗（v1.1.0 控制台隐藏配套）
+        use std::os::windows::process::CommandExt;
         let mut child = Command::new(&exe)
             .env("WINOCR_ASSETS_DIR", &assets)
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

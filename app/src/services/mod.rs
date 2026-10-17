@@ -23,6 +23,7 @@ pub mod collect;
 pub mod export;
 pub mod migrate;
 pub mod tts;
+pub mod logging;
 pub mod dict;
 pub mod enrich;
 pub mod study;

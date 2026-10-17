@@ -1,17 +1,22 @@
 // ============================================================
 // WinOCR 原生入口（Rust + Slint）
 // 严格分层：main → ui → services → core
+//
+// release 不弹控制台（GUI 子系统）；debug（cargo run）保留控制台看日志。
+// 日志去向见 services/logging.rs：debug → 控制台；release →
+// %APPDATA%/WinOCR/logs/winocr.log（滚动保留 5 份）。
 // ============================================================
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod core;
 mod services;
 mod ui;
 
 use anyhow::Result;
-use env_logger::Env;
 
 fn main() -> Result<()> {
-    // 默认 info 级（未设 RUST_LOG 时），否则 env_logger 只输出 error，热键等服务日志不可见
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    // debug → 控制台；release → %APPDATA%/WinOCR/logs/winocr.log（services/logging.rs）
+    services::logging::init();
 
     // P2-4: 单实例守护 —— 若已有实例运行，激活旧窗口后退出。
     // 标题常量唯一真源在 ui::MAIN_TITLE（与 main_window.slint 的 title 逐字一致，

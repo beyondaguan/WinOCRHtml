@@ -96,8 +96,11 @@ impl Tts {
              $synth.Speak('{}')",
             text.replace('\'', "''").replace('\n', " ")
         );
+        // CREATE_NO_WINDOW：GUI 主程序下弹 PowerShell 会闪黑控制台（v1.1.0 配套）
+        use std::os::windows::process::CommandExt;
         let out = Command::new("powershell")
             .args(["-NoProfile", "-Command", &ps_cmd])
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
             .output()
             .context("启动 PowerShell 失败")?;
         if !out.status.success() {
