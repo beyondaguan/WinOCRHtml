@@ -4,6 +4,7 @@
   "version": "0.2.1",
   "description": "划词翻译 + 一键采集生词 + 本地 OCR（PP-OCRv6，无需主程序）。",
   "minimum_chrome_version": "109",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0LfUX3QgjH7AbCYSXF378LiG6N7eNfpCgo1LdzXDZgZRNa/koKCKBAygerlMTwJVmqNjDVJn5ASPBIFJBwOz0LU+TnXn6CPVcWBxLEooVTpqmvylH0BfRwQNovFRXMzL0Yb8vB+B9lIq5uOdVcnEtwzUg2ISzPLG9ToiB1Qdz5iJwe+VWN5f6WqAHjvi3voRClaZAL37QSBBPGN/9lmVCxmqcoMZjKN2SFWJ5NFqYg55R+EJd+dQBLDuGkeCdOIwv4fy5sWDWHi7YXxcUYx6EKA7P9zsrao+orHuItvnj0ntqM68mYlXRiz0Dg7ktZeHjy+BlShXDQi9GeOpwBHriQIDAQAB",
   "permissions": [
     "nativeMessaging",
     "contextMenus",
